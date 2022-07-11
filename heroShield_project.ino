@@ -13,11 +13,7 @@
 #define rxPin 10
 #define txPin 11
 
-#define LED_A 3
-#define LED_B 5
-
 #define POWER_BUTTON 6
-
 //ezButton POWER_BUTTON(6);
 ezButton CHANGE_FOLDER(7);
 ezButton NEXT_BUTTON(8);
@@ -25,13 +21,12 @@ ezButton PAUSE_BUTTON(9);
 
 #define VLM_PIN A0
 #define SAMPLES 10 //average of x values to stabilize reading
-
 #define BUSY_PIN 2
-
 #define VOLUME_LEVEL 16 // 0 - 30 ( 18 is a good level )
 #define MAX_VLM_LVL 17
 #define MP3_SOUNDS_FOLDER 10
 
+//MP3 config
 int fadeDuration = 800; //LEDS fade duration in ms
 
 int num_tracks_in_folder = 0;
@@ -39,6 +34,19 @@ int num_folders = 2;
 int actual_track_n = 0;
 int actual_folder = 1;
 int next_folder = 1;
+
+//NFC config
+String tagId = "None", dispTag = "None";
+byte nuidPICC[4];
+String last_UID;
+boolean waiting = false;
+int waiting_count = 0;
+String type = "Not recognized";
+
+//constructors for the library for I2C communication with the module and for the NFC
+PN532_I2C pn532_i2c(Wire);
+NfcAdapter nfc = NfcAdapter(pn532_i2c);
+
 
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
@@ -68,11 +76,8 @@ void setup()
   // define pin modes for tx, rx:
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
-  
-  pinMode(LED_A, OUTPUT);
-  pinMode(LED_B, OUTPUT);
+
   pinMode(BUSY_PIN,INPUT);
-  pinMode(VLM_PIN,INPUT_PULLUP);
   pinMode(POWER_BUTTON,INPUT_PULLUP);
 
   //POWER_BUTTON.setDebounceTime(50);
@@ -84,6 +89,8 @@ void setup()
   
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
+  nfc.begin();//initialization of communication with the module NFC
+  //nfc.SAMConfig();
 
   //Starting
   Serial.println();
@@ -129,100 +136,79 @@ void loop()
   NEXT_BUTTON.loop();
   PAUSE_BUTTON.loop();
 
+  setup_rgb();
+  readNFC();
+
   if(digitalRead(BUSY_PIN) == LOW ){
     isPlaying = true;
   }else if( digitalRead(BUSY_PIN) == HIGH ) {
     isPlaying = false;
   }
 
-  // POTENTIOMETER - VOLUME 
-  if(isOn){
-    
-  
-    for (int i=0; i< SAMPLES ; i++){
-      inputVolume += analogRead(VLM_PIN);  //Volume lvl recived by Potentiometer
-    }
-    
-    inputVolume /= SAMPLES ;
-    
-    outputVolume = map(inputVolume, 0, 1023, 0, MAX_VLM_LVL);
-  
-    if( (outputVolume != current_volume) && (outputVolume <= MAX_VLM_LVL) ){
-       // modify actual volume output
-      current_volume = outputVolume;
-      
-      if(current_volume <= MAX_VLM_LVL){
-        myDFPlayer.volume(current_volume);
-  
-        Serial.println();
-        Serial.print("Volume changed to: ");
-        Serial.print(current_volume);
-        Serial.println();
-      }
-      
-    }
-
-  }
 
   // POWER BUTTON
-  powerState = digitalRead(POWER_BUTTON);
-  if(powerState == true){ // it has a value
-    powerStatus = !powerStatus;
-      
-        if (powerStatus == On)
-        {
-          Initiation();
-        }
-        else if(powerStatus == Off)
-        {
-          turnOff();
-        }
-        lastPowerState = powerState;
-    
-  } while(digitalRead(POWER_BUTTON) == true);
-  delay(50);
-  
+//  powerState = digitalRead(POWER_BUTTON);
+//  if(powerState == true){ // it has a value
+//    powerStatus = !powerStatus;
+//      
+//        if (powerStatus == On)
+//        {
+//          Initiation();
+//        }
+//        else if(powerStatus == Off)
+//        {
+//          turnOff();
+//        }
+//        lastPowerState = powerState;
+//    
+//  } while(digitalRead(POWER_BUTTON) == true){
+//    delay(50);
+//  }
+//  
+//  if(isOn){
 
-  if(PAUSE_BUTTON.isPressed() && PAUSE_BUTTON.getStateRaw() == LOW && powerStatus == On)
-  {
-    if(isPlaying)
-    {
-      pause();
-      //isPlaying = false;  
-    }
-    else
-    {
-      resume();
-    }
-    
-  }
+//  if(PAUSE_BUTTON.isPressed() && PAUSE_BUTTON.getStateRaw() == LOW && powerStatus == On)
+//  {
+//    if(isPlaying)
+//    {
+//      pause();
+//      //isPlaying = false;  
+//    }
+//    else
+//    {
+//      resume();
+//    }
+//    
+//  }
+//
+//
+//  if(NEXT_BUTTON.isPressed() && NEXT_BUTTON.getStateRaw() == LOW && powerStatus == On)
+//  {
+//    playNextSong();
+//  }
+//
+//  if(CHANGE_FOLDER.isPressed() && CHANGE_FOLDER.getStateRaw() == LOW && powerStatus == On)
+//  {
+//    
+//    changeFolder();
+//    //'next_folder' value changed
+//    updateActualFolder();
+//    
+//    Serial.println();
+//    Serial.print("Changing folder to: ");
+//    Serial.print(next_folder);
+//    Serial.println();
+//
+//    num_tracks_in_folder = myDFPlayer.numTracksInFolder(next_folder);
+//    Serial.print("Tracks in folder ");
+//    Serial.print(next_folder);
+//    Serial.print(": ");
+//    Serial.print(num_tracks_in_folder);
+//    Serial.println();
+//    
+//  }
 
-
-  if(NEXT_BUTTON.isPressed() && NEXT_BUTTON.getStateRaw() == LOW && powerStatus == On)
-  {
-    playNextSong();
-  }
-
-  if(CHANGE_FOLDER.isPressed() && CHANGE_FOLDER.getStateRaw() == LOW && powerStatus == On)
-  {
-    
-    changeFolder();
-    //'next_folder' value changed
-    updateActualFolder();
-    
-    Serial.println();
-    Serial.print("Changing folder to: ");
-    Serial.print(next_folder);
-    Serial.println();
-
-    num_tracks_in_folder = myDFPlayer.numTracksInFolder(next_folder);
-    Serial.print("Tracks in folder ");
-    Serial.print(next_folder);
-    Serial.print(": ");
-    Serial.print(num_tracks_in_folder);
-    Serial.println();
-    
-  }
+//  }
 
   
 
@@ -238,17 +224,17 @@ void Initiation(){
   actual_track_n = 1;
   initSound = true;
   delay(200);
-  fadeLed(digitalRead(LED_A));
+  //fadeLed(digitalRead(LED_A));
 }
 
 void fadeLed(boolean input){
   for(int state=0;state<256;state++){
     if (input==LOW){
-      analogWrite(LED_A, state);
-      analogWrite(LED_B, state);
+      //analogWrite(LED_A, state);
+      //analogWrite(LED_B, state);
     }else{
-      analogWrite(LED_A, 255-state);
-      analogWrite(LED_B, 255-state);
+      //analogWrite(LED_A, 255-state);
+      //analogWrite(LED_B, 255-state);
     }
     delay(fadeDuration/256); //=(total fading duration)/(number of iterations)
   }
@@ -264,17 +250,17 @@ void setup_rgb(){
 
 String detectType(String UID){
   type = "Not recognized";
-  if(UID == "180.103.200.115"){
+  if(UID == "B4 67 C8 73"){
     type = "red";
     Color(255 ,0 ,0);
   }
-  if(UID == "195.240.72.146"){
+  if(UID == "C3 F0 48 92"){
     type = "blue";
     Color(0 ,0, 255);
   }
-  if(UID == "99.28.84.167"){
+  if(UID == "63 1C 54 A7"){
     type = "reset";
-    Color(0 ,0, 0);
+    Color(0 ,255, 0);
   }
   return type;
 }
@@ -299,37 +285,38 @@ void readNFC()
   boolean success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
-  if (success)
+  if (nfc.tagPresent())
   {
-    Serial.println("");
-    waiting = false;
-    waiting_count = 0;
-    
-    Serial.print("UID Length: ");
-    Serial.print(uidLength, DEC);
-    Serial.println(" bytes");
-    Serial.print("UID Value: ");
-    for (uint8_t i = 0; i < uidLength; i++)
-    {
-      nuidPICC[i] = uid[i];
-      Serial.print(" "); Serial.print(uid[i], DEC);
-    }
-    Serial.println();
-    tagId = tagToString(nuidPICC);
-    dispTag = tagId;
-    Serial.print(F("tagId is : "));
-    Serial.println(tagId);
-    
-    Serial.print("Type: "); Serial.print(detectType(tagId));
-    if(last_UID != tagId){
-      changeLed();
-      last_UID = tagId;
-    }
-    
-    Serial.println("");
+//    Serial.println("");
+//    waiting = false;
+//    waiting_count = 0;
+//    
+//    Serial.print("UID Length: ");
+//    Serial.print(uidLength, DEC);
+//    Serial.println(" bytes");
+//    Serial.print("UID Value: ");
+//    for (uint8_t i = 0; i < uidLength; i++)
+//    {
+//      nuidPICC[i] = uid[i];
+//      Serial.print(" "); Serial.print(uid[i], DEC);
+//    }
+//    Serial.println();
+//    tagId = tagToString(nuidPICC);
+//    dispTag = tagId;
+//    Serial.print(F("tagId is : "));
+//    Serial.println(tagId);
+//    
+//    Serial.print("Type: "); Serial.print(detectType(tagId));
+//    if(last_UID != tagId){
+//      last_UID = tagId;
+//    } 
+//    Serial.println("");
+    NfcTag tag = nfc.read(); //reading the NFC card or tag
+    Serial.print("Id: ");
+    Serial.print(  tag.getUidString() );
+    detectType(tag.getUidString());
+    tag.print();
 
-    
     delay(1000);  // 1 second halt
   }
   else
@@ -339,7 +326,7 @@ void readNFC()
   }
 
   if(waiting){
-    if(waiting_count < 100){
+    if(waiting_count < 50){
       waiting_count++;
       Serial.print(".");
     }else{
@@ -493,7 +480,7 @@ void turnOff(){
   
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER,1);  //Play the ON SOUND mp3
   //isPlaying = false;
-  fadeLed(digitalRead(LED_A));
+  
 }
 
 
