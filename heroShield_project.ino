@@ -13,11 +13,11 @@
 #define rxPin 10
 #define txPin 11
 
-#define POWER_BUTTON 6
+#define POWER_BUTTON 4
 //ezButton POWER_BUTTON(6);
-ezButton CHANGE_FOLDER(7);
-ezButton NEXT_BUTTON(8);
-ezButton PAUSE_BUTTON(9);
+ezButton NEXT_BUTTON(5);
+ezButton CHANGE_FOLDER(6);
+//ezButton PAUSE_BUTTON(9);
 
 #define VLM_PIN A0
 #define SAMPLES 10 //average of x values to stabilize reading
@@ -83,7 +83,7 @@ void setup()
   //POWER_BUTTON.setDebounceTime(50);
   CHANGE_FOLDER.setDebounceTime(20);
   NEXT_BUTTON.setDebounceTime(50);
-  PAUSE_BUTTON.setDebounceTime(50);
+  //PAUSE_BUTTON.setDebounceTime(50);
 
   current_volume = VOLUME_LEVEL;
   
@@ -134,7 +134,7 @@ void loop()
   //POWER_BUTTON.loop();
   CHANGE_FOLDER.loop();
   NEXT_BUTTON.loop();
-  PAUSE_BUTTON.loop();
+  //PAUSE_BUTTON.loop();
 
   setup_rgb();
   readNFC();
@@ -182,10 +182,10 @@ void loop()
 //  }
 //
 //
-//  if(NEXT_BUTTON.isPressed() && NEXT_BUTTON.getStateRaw() == LOW && powerStatus == On)
-//  {
-//    playNextSong();
-//  }
+  if(NEXT_BUTTON.isPressed() && NEXT_BUTTON.getStateRaw() == LOW && powerStatus == On)
+  {
+    playNextSong();
+  }
 //
 //  if(CHANGE_FOLDER.isPressed() && CHANGE_FOLDER.getStateRaw() == LOW && powerStatus == On)
 //  {
@@ -227,6 +227,15 @@ void Initiation(){
   //fadeLed(digitalRead(LED_A));
 }
 
+void playNewSkillSound(){
+  Serial.println();
+  Serial.println(F("New Skill Obtained !"));
+  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER,1);  //Play the ON SOUND mp3
+  actual_track_n = 1;
+  initSound = true;
+  delay(200);
+}
+
 void fadeLed(boolean input){
   for(int state=0;state<256;state++){
     if (input==LOW){
@@ -243,9 +252,9 @@ void fadeLed(boolean input){
 
 
 void setup_rgb(){
+  pinMode(7, OUTPUT);
   pinMode(8, OUTPUT);
   pinMode(9, OUTPUT);
-  pinMode(10, OUTPUT);
 }
 
 String detectType(String UID){
@@ -253,14 +262,15 @@ String detectType(String UID){
   if(UID == "B4 67 C8 73"){
     type = "red";
     Color(255 ,0 ,0);
-  }
-  if(UID == "C3 F0 48 92"){
+    playNewSkillSound();
+  }else if(UID == "C3 F0 48 92"){
     type = "blue";
     Color(0 ,0, 255);
-  }
-  if(UID == "63 1C 54 A7"){
+    playNewSkillSound();
+  }else if(UID == "63 1C 54 A7"){
     type = "reset";
     Color(0 ,255, 0);
+    playNewSkillSound();
   }
   return type;
 }
@@ -270,9 +280,9 @@ String detectType(String UID){
 // LED functions ---------------------------------
 
 void Color(int R, int G, int B){     
-      digitalWrite(10 , R) ;   // Red    - Rojo
-      digitalWrite(9, G) ;   // Green - Verde
-      digitalWrite(8, B) ;   // Blue - Azul
+      digitalWrite(9 , R) ;   // Red    - Rojo
+      digitalWrite(8, G) ;   // Green - Verde
+      digitalWrite(7, B) ;   // Blue - Azul
 }
 
 
