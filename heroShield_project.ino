@@ -22,7 +22,7 @@ ezButton CHANGE_FOLDER(6);
 #define VLM_PIN A0
 #define SAMPLES 10 //average of x values to stabilize reading
 #define BUSY_PIN 2
-#define VOLUME_LEVEL 16 // 0 - 30 ( 18 is a good level )
+#define VOLUME_LEVEL 23 // 0 - 30 ( 18 is a good level )
 #define MAX_VLM_LVL 17
 #define MP3_SOUNDS_FOLDER 10
 
@@ -42,6 +42,9 @@ String last_UID;
 boolean waiting = false;
 int waiting_count = 0;
 String type = "Not recognized";
+
+String last_card_UID = "";
+boolean new_card = false;
 
 //constructors for the library for I2C communication with the module and for the NFC
 PN532_I2C pn532_i2c(Wire);
@@ -322,12 +325,24 @@ void readNFC()
 //    } 
 //    Serial.println("");
     NfcTag tag = nfc.read(); //reading the NFC card or tag
-    Serial.print("Id: ");
-    Serial.print(  tag.getUidString() );
-    detectType(tag.getUidString());
-    tag.print();
 
-    delay(1000);  // 1 second halt
+    if( last_card_UID == tag.getUidString() ){
+      new_card = false;
+    }else{
+      new_card = true;
+    }
+    
+    if(new_card){
+      last_card_UID = tag.getUidString();
+
+      Serial.println("");
+      Serial.print("Id: ");
+      Serial.print(  tag.getUidString() );
+      detectType(tag.getUidString());
+  
+      delay(1000);  // 1 second halt
+    }
+    
   }
   else
   {
