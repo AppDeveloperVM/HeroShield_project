@@ -26,7 +26,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KH
 // Argument 1 = Number of pixels in NeoPixel strip
 // Argument 2 = Arduino pin number (most are valid)
 // Argument 3 = Pixel type flags, add together as needed
-#define BRIGHTNESS 50
+#define BRIGHTNESS 150
 
 #define rxPin 10
 #define txPin 11
@@ -296,11 +296,11 @@ void readNFC()
     //    Serial.println("");
     NfcTag tag = nfc.read(); //reading the NFC card or tag
 
-    if ( last_card_UID == tag.getUidString() ) {
-      new_card = false;
-    } else {
+//    if ( last_card_UID == tag.getUidString() ) {
+//      new_card = false;
+//    } else {
       new_card = true;
-    }
+//    }
 
     if (new_card) {
       last_card_UID = tag.getUidString();
