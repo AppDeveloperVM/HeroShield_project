@@ -26,6 +26,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KH
 // Argument 1 = Number of pixels in NeoPixel strip
 // Argument 2 = Arduino pin number (most are valid)
 // Argument 3 = Pixel type flags, add together as needed
+#define BRIGHTNESS 50
 
 #define rxPin 10
 #define txPin 11
@@ -62,6 +63,9 @@ String type = "Not recognized";
 
 String last_card_UID = "";
 boolean new_card = false;
+
+boolean nfc_found = false;
+boolean initiated = false;
 
 //constructors for the library for I2C communication with the module and for the NFC
 PN532_I2C pn532_i2c(Wire);
@@ -139,15 +143,26 @@ void setup()
     Serial.println("[ Some errors to fix ]");
   }
 
-  setup_rgb();
-  defaultGreenColor();
+  
+  //Wire.begin();
+  
   nfc.begin();//initialization of communication with the module NFC
-  Serial.println("NFC opened");
+  while (!Serial) delay(10); 
+  Serial.println("NFC reader working");
+
+  
   
 }
 
 void loop()
 {
+
+  if(initiated == false){
+    initiated = true;
+    setup_rgb();
+    defaultGreenColor();
+  }
+  
   readNFC();
 
 }
@@ -168,7 +183,7 @@ void Initiation() {
 
 void setup_rgb() {
   strip.begin();
-  strip.setBrightness(50);
+  strip.setBrightness(BRIGHTNESS);
   strip.show();
 }
 
@@ -182,7 +197,7 @@ void defaultGreenColor() {
 }
 
 void setAll(byte red, byte green, byte blue) {
-  for (int i = 0; i < 9; i++ ) {
+  for (int i = 0; i < 10; i++ ) {
     setPixel(i, red, green, blue);
   }
   strip.show();
@@ -219,7 +234,7 @@ String detectType(String UID) {
     type = "blue";
 
     for (int k = 0; k < 256; k++) {
-      setAll(0, k, 0);
+      setAll(0, 0, k);
       strip.show();
       delay(3);
     }
@@ -296,7 +311,7 @@ void readNFC()
       Serial.print(detectType(tag.getUidString()));
       Serial.println();
 
-      delay(1000);  // 1 second halt
+      delay(100);  // 1 second halt
     }
 
   }
@@ -306,15 +321,15 @@ void readNFC()
     // PN532 probably timed out waiting for a card
   }
 
-  if (waiting) {
-    if (waiting_count < 50) {
-      waiting_count++;
-      Serial.print(".");
-    } else {
-      waiting_count = 0;
-      Serial.println("");
-    }
-  }
+//  if (waiting) {
+//    if (waiting_count < 50) {
+//      waiting_count++;
+//      Serial.print(".");
+//    } else {
+//      waiting_count = 0;
+//      Serial.println("");
+//    }
+//  }
 
 }
 
