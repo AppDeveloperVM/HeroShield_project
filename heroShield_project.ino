@@ -1,14 +1,31 @@
-#include <DFPlayerMini_Fast.h>
-#include <ezButton.h>
+//BASIC
 #include "Arduino.h"
 #include "SoftwareSerial.h"
 
-//including the library for I2C communication 
+//DFPLAYER
+#include <DFPlayerMini_Fast.h>
+//eZButton
+#include <ezButton.h>
+
+// NFC libs
+//including the library for I2C communication
 #include <Wire.h>
 //including the library for I2C communication with the PN532 module, library for the PN532 module and the library for the NFC
 #include <PN532_I2C.h>
 #include <PN532.h>
 #include <NfcAdapter.h>
+
+// NEOPIXEL
+#include <Adafruit_NeoPixel.h>
+// Which pin on the Arduino is connected to the NeoPixels?
+// On a Trinket or Gemma we suggest changing this to 1:
+#define LED_PIN   12
+// How many NeoPixels are attached to the Arduino?
+#define LED_COUNT 10
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+// Argument 1 = Number of pixels in NeoPixel strip
+// Argument 2 = Arduino pin number (most are valid)
+// Argument 3 = Pixel type flags, add together as needed
 
 #define rxPin 10
 #define txPin 11
@@ -62,7 +79,7 @@ int OffState = HIGH;
 
 int powerStatus = false;
 int On = true;
-int Off = false;   
+int Off = false;
 
 boolean isOn = false;
 boolean isPlaying = false;
@@ -80,199 +97,143 @@ void setup()
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
 
-  pinMode(BUSY_PIN,INPUT);
-  pinMode(POWER_BUTTON,INPUT_PULLUP);
-
   //POWER_BUTTON.setDebounceTime(50);
   CHANGE_FOLDER.setDebounceTime(20);
   NEXT_BUTTON.setDebounceTime(50);
   //PAUSE_BUTTON.setDebounceTime(50);
 
   current_volume = VOLUME_LEVEL;
-  
+
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
-  nfc.begin();//initialization of communication with the module NFC
-  //nfc.SAMConfig();
 
   //Starting
   Serial.println();
   Serial.println(F("DFRobot DFPlayer Mini"));
   Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
-  
-  
+
+
   Serial.println(F("DFPlayer Mini online."));
   // check errors+
-  if( checkForErrors() != 1 ){
+  if ( checkForErrors() != 1 ) {
     Serial.println("[ No errors ]");
 
     Serial.println();
     myDFPlayer.volume(VOLUME_LEVEL);  //Set volume value. From 0 to 30
     delay(200);
-  
+
     Serial.print("Current Volume : ");
     Serial.print( myDFPlayer.currentVolume() );
     Serial.println();
     Serial.print("Total Num tracks: ");
     Serial.print(myDFPlayer.numSdTracks());
     Serial.println();
-  
+
     num_tracks_in_folder = myDFPlayer.numTracksInFolder(actual_folder);
-  
+
     Serial.print("Current track : ");
     Serial.print(myDFPlayer.currentSdTrack());
     Serial.println();
     // num_folders = myDFPlayer.numFolders() //contar 1 menos debido a la carpeta de SOUNDS
-  }else{
+  } else {
     Serial.println("[ Some errors to fix ]");
   }
-  
-  
+
+  setup_rgb();
+  defaultGreenColor();
+  nfc.begin();//initialization of communication with the module NFC
+  Serial.println("NFC opened");
   
 }
 
 void loop()
 {
-  
-  //POWER_BUTTON.loop();
-  CHANGE_FOLDER.loop();
-  NEXT_BUTTON.loop();
-  //PAUSE_BUTTON.loop();
-
-  setup_rgb();
   readNFC();
-
-  if(digitalRead(BUSY_PIN) == LOW ){
-    isPlaying = true;
-  }else if( digitalRead(BUSY_PIN) == HIGH ) {
-    isPlaying = false;
-  }
-
-
-  // POWER BUTTON
-//  powerState = digitalRead(POWER_BUTTON);
-//  if(powerState == true){ // it has a value
-//    powerStatus = !powerStatus;
-//      
-//        if (powerStatus == On)
-//        {
-//          Initiation();
-//        }
-//        else if(powerStatus == Off)
-//        {
-//          turnOff();
-//        }
-//        lastPowerState = powerState;
-//    
-//  } while(digitalRead(POWER_BUTTON) == true){
-//    delay(50);
-//  }
-//  
-//  if(isOn){
-
-//  if(PAUSE_BUTTON.isPressed() && PAUSE_BUTTON.getStateRaw() == LOW && powerStatus == On)
-//  {
-//    if(isPlaying)
-//    {
-//      pause();
-//      //isPlaying = false;  
-//    }
-//    else
-//    {
-//      resume();
-//    }
-//    
-//  }
-//
-//
-  if(NEXT_BUTTON.isPressed() && NEXT_BUTTON.getStateRaw() == LOW && powerStatus == On)
-  {
-    playNextSong();
-  }
-//
-//  if(CHANGE_FOLDER.isPressed() && CHANGE_FOLDER.getStateRaw() == LOW && powerStatus == On)
-//  {
-//    
-//    changeFolder();
-//    //'next_folder' value changed
-//    updateActualFolder();
-//    
-//    Serial.println();
-//    Serial.print("Changing folder to: ");
-//    Serial.print(next_folder);
-//    Serial.println();
-//
-//    num_tracks_in_folder = myDFPlayer.numTracksInFolder(next_folder);
-//    Serial.print("Tracks in folder ");
-//    Serial.print(next_folder);
-//    Serial.print(": ");
-//    Serial.print(num_tracks_in_folder);
-//    Serial.println();
-//    
-//  }
-
-//  }
-
-  
 
 }
 
-void Initiation(){
-  // play FURRRÑIUUNN microphone sound
+
+
+void Initiation() {
   Serial.println();
   Serial.println(F("STARTING.."));
   isOn = true;
-  
-  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER,1);  //Play the ON SOUND mp3
+
+  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
   initSound = true;
   delay(200);
   //fadeLed(digitalRead(LED_A));
 }
 
-void playNewSkillSound(){
+void setup_rgb() {
+  strip.begin();
+  strip.setBrightness(50);
+  strip.show();
+}
+
+void defaultGreenColor() {
+  // Fade IN - GREEN
+  for (int k = 0; k < 256; k++) {
+    setAll(0, k, 0);
+    strip.show();
+    delay(3);
+  }
+}
+
+void setAll(byte red, byte green, byte blue) {
+  for (int i = 0; i < 9; i++ ) {
+    setPixel(i, red, green, blue);
+  }
+  strip.show();
+}
+
+void setPixel(int Pixel, byte red, byte green, byte blue) {
+
+  // NeoPixel
+  strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+}
+
+void playNewSkillSound() {
   Serial.println();
   Serial.println(F("New Skill Obtained !"));
-  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER,1);  //Play the ON SOUND mp3
+  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
   initSound = true;
   delay(200);
 }
 
-void fadeLed(boolean input){
-  for(int state=0;state<256;state++){
-    if (input==LOW){
-      //analogWrite(LED_A, state);
-      //analogWrite(LED_B, state);
-    }else{
-      //analogWrite(LED_A, 255-state);
-      //analogWrite(LED_B, 255-state);
-    }
-    delay(fadeDuration/256); //=(total fading duration)/(number of iterations)
-  }
-}
-
-
-
-void setup_rgb(){
-  pinMode(7, OUTPUT);
-  pinMode(8, OUTPUT);
-  pinMode(9, OUTPUT);
-}
-
-String detectType(String UID){
+String detectType(String UID) {
   type = "Not recognized";
-  if(UID == "B4 67 C8 73"){
+  if (UID == "B4 67 C8 73") {
     type = "red";
-    Color(255 ,0 ,0);
+
+    for (int k = 0; k < 256; k++) {
+      setAll(k, 0, 0);
+      strip.show();
+      delay(3);
+    }
+
     playNewSkillSound();
-  }else if(UID == "C3 F0 48 92"){
+  } else if (UID == "C3 F0 48 92") {
     type = "blue";
-    Color(0 ,0, 255);
+
+    for (int k = 0; k < 256; k++) {
+      setAll(0, k, 0);
+      strip.show();
+      delay(3);
+    }
+
     playNewSkillSound();
-  }else if(UID == "63 1C 54 A7"){
+  } else if (UID == "63 1C 54 A7") {
     type = "reset";
-    Color(0 ,255, 0);
+
+    for (int k = 0; k < 256; k++) {
+      setAll(0, 0, k);
+      strip.show();
+      delay(3);
+    }
+
     playNewSkillSound();
   }
   return type;
@@ -281,12 +242,6 @@ String detectType(String UID){
 
 
 // LED functions ---------------------------------
-
-void Color(int R, int G, int B){     
-      digitalWrite(9 , R) ;   // Red    - Rojo
-      digitalWrite(8, G) ;   // Green - Verde
-      digitalWrite(7, B) ;   // Blue - Azul
-}
 
 
 
@@ -300,49 +255,50 @@ void readNFC()
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   if (nfc.tagPresent())
   {
-//    Serial.println("");
-//    waiting = false;
-//    waiting_count = 0;
-//    
-//    Serial.print("UID Length: ");
-//    Serial.print(uidLength, DEC);
-//    Serial.println(" bytes");
-//    Serial.print("UID Value: ");
-//    for (uint8_t i = 0; i < uidLength; i++)
-//    {
-//      nuidPICC[i] = uid[i];
-//      Serial.print(" "); Serial.print(uid[i], DEC);
-//    }
-//    Serial.println();
-//    tagId = tagToString(nuidPICC);
-//    dispTag = tagId;
-//    Serial.print(F("tagId is : "));
-//    Serial.println(tagId);
-//    
-//    Serial.print("Type: "); Serial.print(detectType(tagId));
-//    if(last_UID != tagId){
-//      last_UID = tagId;
-//    } 
-//    Serial.println("");
+    //    Serial.println("");
+    //    waiting = false;
+    //    waiting_count = 0;
+    //
+    //    Serial.print("UID Length: ");
+    //    Serial.print(uidLength, DEC);
+    //    Serial.println(" bytes");
+    //    Serial.print("UID Value: ");
+    //    for (uint8_t i = 0; i < uidLength; i++)
+    //    {
+    //      nuidPICC[i] = uid[i];
+    //      Serial.print(" "); Serial.print(uid[i], DEC);
+    //    }
+    //    Serial.println();
+    //    tagId = tagToString(nuidPICC);
+    //    dispTag = tagId;
+    //    Serial.print(F("tagId is : "));
+    //    Serial.println(tagId);
+    //
+    //    Serial.print("Type: "); Serial.print(detectType(tagId));
+    //    if(last_UID != tagId){
+    //      last_UID = tagId;
+    //    }
+    //    Serial.println("");
     NfcTag tag = nfc.read(); //reading the NFC card or tag
 
-    if( last_card_UID == tag.getUidString() ){
+    if ( last_card_UID == tag.getUidString() ) {
       new_card = false;
-    }else{
+    } else {
       new_card = true;
     }
-    
-    if(new_card){
+
+    if (new_card) {
       last_card_UID = tag.getUidString();
 
       Serial.println("");
       Serial.print("Id: ");
       Serial.print(  tag.getUidString() );
-      detectType(tag.getUidString());
-  
+      Serial.print(detectType(tag.getUidString()));
+      Serial.println();
+
       delay(1000);  // 1 second halt
     }
-    
+
   }
   else
   {
@@ -350,16 +306,16 @@ void readNFC()
     // PN532 probably timed out waiting for a card
   }
 
-  if(waiting){
-    if(waiting_count < 50){
+  if (waiting) {
+    if (waiting_count < 50) {
       waiting_count++;
       Serial.print(".");
-    }else{
+    } else {
       waiting_count = 0;
       Serial.println("");
     }
   }
-  
+
 }
 
 String tagToString(byte id[4])
@@ -380,11 +336,11 @@ String tagToString(byte id[4])
 
 void pause()
 {
-  if(initSound == true){
-    myDFPlayer.playFolder(actual_folder,actual_track_n);
+  if (initSound == true) {
+    myDFPlayer.playFolder(actual_folder, actual_track_n);
     Serial.println("-Playing first song- ");
     initSound = false;
-  }else{
+  } else {
     myDFPlayer.pause();
     Serial.println("-Paused- ");
   }
@@ -394,52 +350,52 @@ void pause()
 void resume()
 {
 
-  if(initSound == false && folder_changed == false){
+  if (initSound == false && folder_changed == false) {
     myDFPlayer.resume();
     Serial.println("-Resumed- ");
   }
-  
-  if(initSound == true){
-    myDFPlayer.playFolder(actual_folder,actual_track_n);
+
+  if (initSound == true) {
+    myDFPlayer.playFolder(actual_folder, actual_track_n);
     Serial.println("-Playing first song- ");
     initSound = false;
   }
 
-  if(folder_changed == true){
-    myDFPlayer.playFolder(actual_folder,actual_track_n);
+  if (folder_changed == true) {
+    myDFPlayer.playFolder(actual_folder, actual_track_n);
     Serial.println("-Playing first song- ");
     folder_changed = false;
   }
-  
+
   delay(500);
 }
 
-void playNextSong(){
+void playNextSong() {
 
-  if(initSound == true){
+  if (initSound == true) {
     // Play init Sound
     actual_track_n = 1;
     initSound = false;
-  }else{
+  } else {
 
-    if(actual_folder != next_folder){
+    if (actual_folder != next_folder) {
       //after changing folder, play first sound of folder
-       actual_track_n = 1;
-       actual_folder = next_folder;
-    }else{
-      if(actual_track_n < num_tracks_in_folder) {
+      actual_track_n = 1;
+      actual_folder = next_folder;
+    } else {
+      if (actual_track_n < num_tracks_in_folder) {
         actual_track_n++;
-      }else{
+      } else {
         actual_track_n = 1;
       }
-        
+
     }
-      
+
   }
 
-  myDFPlayer.playFolder(actual_folder,actual_track_n);
+  myDFPlayer.playFolder(actual_folder, actual_track_n);
   //isPlaying = true;
-  Serial.print("-Playing track "); 
+  Serial.print("-Playing track ");
   Serial.print(actual_track_n);
   Serial.print("-");
   Serial.println();
@@ -449,28 +405,28 @@ void playNextSong(){
   Serial.print(" in folder :");
   Serial.print(actual_folder);
   Serial.println();
-      
+
   delay(200);
 }
 
-void changeFolder(){
+void changeFolder() {
 
-  if(next_folder < num_folders){
+  if (next_folder < num_folders) {
     next_folder++;
-  }else{
+  } else {
     next_folder = 1;
   }
 
   actual_track_n = 1;
-  
-  folder_changed = true;
-  
+
+  folder_changed  = true;
+
   delay(200);
 }
 
-void updateActualFolder(){
+void updateActualFolder() {
   actual_folder = next_folder;
-  
+
   delay(200);
 }
 
@@ -478,19 +434,19 @@ void updateActualFolder(){
 
 int checkForErrors() {
   int has_errors = 0;
-  
-   if ( !myDFPlayer.begin(mySoftwareSerial) ) {  //Use softwareSerial to communicate with mp3.
+
+  if ( !myDFPlayer.begin(mySoftwareSerial) ) {  //Use softwareSerial to communicate with mp3.
     Serial.println(F("Unable to begin:"));
     Serial.println(F("1.Please recheck the connection!"));
     Serial.println(F("2.Please insert the SD card!"));
     Serial.println(myDFPlayer.numSdTracks()); //read mp3 state
 
     has_errors = 1;
-    
-    while(true);
+
+    while (true);
   }
 
-  if( myDFPlayer.numSdTracks() == -1){
+  if ( myDFPlayer.numSdTracks() == -1) {
     has_errors = 1;
     has_media = false;
     Serial.println("- SD card not found");
@@ -499,15 +455,11 @@ int checkForErrors() {
   return has_errors;
 }
 
-void turnOff(){
+void turnOff() {
   Serial.println(F("TURNING OFF.."));
   isOn = false;
-  
-  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER,1);  //Play the ON SOUND mp3
+
+  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   //isPlaying = false;
-  
+
 }
-
-
-
- 
