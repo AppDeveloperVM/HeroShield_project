@@ -25,7 +25,6 @@ boolean initSound = false;
 #include <NfcAdapter.h>
 String last_card_UID = "";
 boolean new_card = false;
-boolean initiated = false;
 String type = "Not recognized";
 boolean waiting = false;
 
@@ -44,6 +43,9 @@ char stripColor = 'G';
 PN532_I2C pn532_i2c(Wire);
 NfcAdapter nfc = NfcAdapter(pn532_i2c);
 
+//Initiation steps
+int init_step = 0;
+boolean initiated = false;
 
 void setup() {
   // define pin modes for tx, rx:
@@ -53,21 +55,42 @@ void setup() {
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
 
+   delay(50);
   //Starting
-  initDFPlayer();
+  initLeds();
+  while(init_step < 1) delay(10);
   initNFCReader();
+  while(init_step < 2) delay(10);
+  initDFPlayer();
+  while(init_step < 3) delay(10);
 
 }
 
 void loop() {
-  if(initiated == false){
-    initiation();
+  if(init_step == 3){
+    readNFC();
   }
 
-  readNFC();
+  
+}
+
+void initLeds(){
+  setup_rgb();
+  defaultGreenColor();
+  init_step++;
+}
+
+void initNFCReader(){
+  //Wire.begin();  
+  nfc.begin();//initialization of communication with the module NFC
+  while (!Serial) delay(10); 
+  Serial.println(F("NFC reader working"));
+  init_step++;
 }
 
 
+
+//DFPlayer FUNCTIONS
 void initDFPlayer(){
   Serial.println();
   Serial.println(F("DFRobot DFPlayer Mini"));
@@ -77,7 +100,7 @@ void initDFPlayer(){
   Serial.println(F("DFPlayer Mini online."));
   // check errors+
   if ( checkForErrors() != 1 ) {
-    Serial.println("[ No errors ]");
+    Serial.println(F("[ No errors ]"));
 
     Serial.println();
     myDFPlayer.volume(VOLUME_LEVEL);  //Set volume value. From 0 to 30
@@ -85,37 +108,24 @@ void initDFPlayer(){
 
     Serial.print("Current Volume : ");
     Serial.print( myDFPlayer.currentVolume() );
-    Serial.println();
+    Serial.println(F(""));
     Serial.print("Total Num tracks: ");
     Serial.print(myDFPlayer.numSdTracks());
-    Serial.println();
+    Serial.println(F(""));
 
     num_tracks_in_folder = myDFPlayer.numTracksInFolder(actual_folder);
 
     Serial.print("Current track : ");
     Serial.print(myDFPlayer.currentSdTrack());
-    Serial.println();
+    Serial.println(F(""));
     // num_folders = myDFPlayer.numFolders() //contar 1 menos debido a la carpeta de SOUNDS
   } else {
-    Serial.println("[ Some errors to fix ]");
+    Serial.println(F("[ Some errors to fix ]"));
   }
+  init_step++;
 }
 
 
-void initNFCReader(){
-  //Wire.begin();  
-  nfc.begin();//initialization of communication with the module NFC
-  while (!Serial) delay(10); 
-  Serial.println("NFC reader working");
-}
-
-void initiation(){
-  initiated = true;
-  setup_rgb();
-  defaultGreenColor();
-}
-
-//DFPlayer FUNCTIONS
 int checkForErrors() {
   int has_errors = 0;
 
@@ -123,7 +133,7 @@ int checkForErrors() {
     Serial.println(F("Unable to begin:"));
     Serial.println(F("1.Please recheck the connection!"));
     Serial.println(F("2.Please insert the SD card!"));
-    Serial.println(myDFPlayer.numSdTracks()); //read mp3 state
+    Serial.println(F( myDFPlayer.numSdTracks() )); //read mp3 state
 
     has_errors = 1;
 
@@ -133,7 +143,7 @@ int checkForErrors() {
   if ( myDFPlayer.numSdTracks() == -1) {
     has_errors = 1;
     has_media = false;
-    Serial.println("- SD card not found");
+    Serial.println(F("- SD card not found"));
   }
 
   return has_errors;
@@ -141,7 +151,7 @@ int checkForErrors() {
 
 
 void playNewSkillSound() {
-  Serial.println();
+  Serial.println(F(""));
   Serial.println(F("New Skill Obtained !"));
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
@@ -158,7 +168,7 @@ void readNFC()
   if (nfc.tagPresent())
   {
     NfcTag tag = nfc.read(); //reading the NFC card or tag
-    Serial.println("");
+    Serial.println(F(""));
 
     if ( last_card_UID == tag.getUidString() ) {
      new_card = false;
@@ -172,7 +182,7 @@ void readNFC()
 //      Serial.println("");
 //      Serial.print("Id: ");
 //      Serial.print(  tag.getUidString() );
-      Serial.println(detectType(tag.getUidString()));
+      Serial.println(F( detectType(tag.getUidString()) ));
 //      Serial.println();
 
       delay(100);  // 1 second halt
