@@ -5,8 +5,9 @@
 //DFPLAYER
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
+
 #define txPin 11
-#define VOLUME_LEVEL 5
+#define VOLUME_LEVEL 20
 #define MP3_SOUNDS_FOLDER 10
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
@@ -28,6 +29,10 @@ boolean new_card = false;
 String type = "Not recognized";
 boolean waiting = false;
 
+//constructors for the library for I2C communication with the module and for the NFC
+PN532_I2C pn532_i2c(Wire);
+NfcAdapter nfc = NfcAdapter(pn532_i2c);
+
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
 // Which pin on the Arduino is connected to the NeoPixels?
@@ -36,12 +41,10 @@ boolean waiting = false;
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 10
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-#define BRIGHTNESS 150
+#define BRIGHTNESS 170
 char stripColor = 'G';
 
-//constructors for the library for I2C communication with the module and for the NFC
-PN532_I2C pn532_i2c(Wire);
-NfcAdapter nfc = NfcAdapter(pn532_i2c);
+
 
 //Initiation steps
 int init_step = 0;
@@ -53,16 +56,16 @@ void setup() {
   pinMode(txPin, OUTPUT);
 
   mySoftwareSerial.begin(9600);
-  Serial.begin(115200);
+  Serial.begin(9600);
 
-   delay(50);
+  delay(50);
+  Serial.println(F("Initiating.."));
   //Starting
   initLeds();
   while(init_step < 1) delay(10);
-  initNFCReader();
-  while(init_step < 2) delay(10);
   initDFPlayer();
-  while(init_step < 3) delay(10);
+  while(init_step < 2) delay(10);
+  initNFCReader();
 
 }
 
@@ -71,23 +74,24 @@ void loop() {
     readNFC();
   }
 
-  
 }
+
+
 
 void initLeds(){
   setup_rgb();
   defaultGreenColor();
-  init_step++;
+  Serial.println(F("Led Strip working"));
+  init_step = 1;
 }
 
 void initNFCReader(){
   //Wire.begin();  
   nfc.begin();//initialization of communication with the module NFC
-  while (!Serial) delay(10); 
+
   Serial.println(F("NFC reader working"));
   init_step++;
 }
-
 
 
 //DFPlayer FUNCTIONS
@@ -133,7 +137,7 @@ int checkForErrors() {
     Serial.println(F("Unable to begin:"));
     Serial.println(F("1.Please recheck the connection!"));
     Serial.println(F("2.Please insert the SD card!"));
-    Serial.println(F( myDFPlayer.numSdTracks() )); //read mp3 state
+    Serial.println( myDFPlayer.numSdTracks() ); //read mp3 state
 
     has_errors = 1;
 
@@ -159,6 +163,19 @@ void playNewSkillSound() {
   delay(200);
 }
 
+
+void newSkill(){
+  
+}
+
+void rageShield(){
+  
+}
+
+void prisonShield(){
+  
+}
+
 //NFC FUNCTIONS
 void readNFC()
 {
@@ -182,7 +199,7 @@ void readNFC()
 //      Serial.println("");
 //      Serial.print("Id: ");
 //      Serial.print(  tag.getUidString() );
-      Serial.println(F( detectType(tag.getUidString()) ));
+      Serial.println( detectType(tag.getUidString()) );
 //      Serial.println();
 
       delay(100);  // 1 second halt
