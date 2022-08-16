@@ -2,6 +2,10 @@
 #include "Arduino.h"
 #include "SoftwareSerial.h"
 
+//Buttons
+#include <ezButton.h>
+ezButton button(9);
+
 //DFPLAYER
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
@@ -56,7 +60,8 @@ void setup() {
   pinMode(txPin, OUTPUT);
 
   mySoftwareSerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(115200);
+  button.setDebounceTime(50);
 
   delay(50);
   Serial.println(F("Initiating.."));
@@ -70,6 +75,11 @@ void setup() {
 }
 
 void loop() {
+  button.loop();
+  int btnState = button.getState();
+  if(button.isPressed() )
+    Serial.println(F("The button is pressed"));
+    
   if(init_step == 3){
     readNFC();
   }
@@ -86,7 +96,6 @@ void initLeds(){
 }
 
 void initNFCReader(){
-  //Wire.begin();  
   nfc.begin();//initialization of communication with the module NFC
 
   Serial.println(F("NFC reader working"));
