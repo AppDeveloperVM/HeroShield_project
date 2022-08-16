@@ -11,7 +11,7 @@ ezButton button(9);
 #define rxPin 10
 
 #define txPin 11
-#define VOLUME_LEVEL 20
+#define VOLUME_LEVEL 10
 #define MP3_SOUNDS_FOLDER 10
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
@@ -103,7 +103,7 @@ void initNFCReader(){
 }
 
 
-//DFPlayer FUNCTIONS
+
 void initDFPlayer(){
   Serial.println();
   Serial.println(F("DFRobot DFPlayer Mini"));
@@ -138,7 +138,7 @@ void initDFPlayer(){
   init_step++;
 }
 
-
+//DFPlayer FUNCTIONS
 int checkForErrors() {
   int has_errors = 0;
 
@@ -172,18 +172,6 @@ void playNewSkillSound() {
   delay(200);
 }
 
-
-void newSkill(){
-  
-}
-
-void rageShield(){
-  
-}
-
-void prisonShield(){
-  
-}
 
 //NFC FUNCTIONS
 void readNFC()
@@ -233,16 +221,14 @@ String detectType(String UID) {
     
     type = "red";
     playNewSkillSound();
-    setColorLedStrip('R');
-    
+    rageShield();
     
   } else if (UID == "C3 F0 48 92") {
     
     type = "blue";
     playNewSkillSound();
     setColorLedStrip('B');
-    
-
+ 
   } else {
     //(UID == "63 1C 54 A7")
     
@@ -270,6 +256,44 @@ void defaultGreenColor() {
     delay(3);
   }
 }
+
+void newSkill(){
+  //Green basic effect
+  
+}
+
+void rageShield(){
+
+  for(int secs = 0; secs < 300 ; secs++) {
+    //Fire Effect
+    //  Regular (orange) flame:
+    int r = 226, g = 21, b = 35;
+    //  Purple flame:
+    //  int r = 158, g = 8, b = 148;
+    
+    //  Flicker, based on our initial RGB values
+    for(int i=0; i< 10; i++) {
+      int flicker = random(0,55);
+      int r1 = r-flicker;
+      int g1 = g-flicker;
+      int b1 = b-flicker;
+      if(g1<0) g1=0;
+      if(r1<0) r1=0;
+      if(b1<0) b1=0;
+      strip.setPixelColor(i,r1,g1, b1);
+    }
+    strip.show();
+    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
+    //  color switch delay to give a sense of realism
+    delay(random(10,100));
+  }
+}
+
+void prisonShield(){
+  
+}
+
+
 
 void setColorLedStrip(char color){
   switch(color){
