@@ -48,7 +48,15 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KH
 #define BRIGHTNESS 170
 char stripColor = 'G';
 
-
+//global RGB values
+int red = 0;
+int green = 0;
+int blue = 0;
+int rgb_max = 0;
+//Por tal de no quedarse atascado en una animación de leds, se comprueban estados actuales y procesos pendientes
+boolean anim_started = 0;
+boolean anim_finished = 0;
+int anim_code = 0;
 
 //Initiation steps
 int init_step = 0;
@@ -84,6 +92,11 @@ void loop() {
     readNFC();
   }
 
+  if(anim_started == 1 && anim_finished == 0){
+    //continue started animation..
+    continue_anim();
+  }
+
 }
 
 
@@ -101,8 +114,6 @@ void initNFCReader(){
   Serial.println(F("NFC reader working"));
   init_step++;
 }
-
-
 
 void initDFPlayer(){
   Serial.println();
@@ -215,27 +226,44 @@ void readNFC()
 
 }
 
+void animate(int animation = 0,int r = 0, int g = 0, int b = 0){
+  //asignar RGB
+  
+  
+  
+
+  
+
+  switch(animation){
+    case 1:
+    //Fade GREEN - initial
+    fadeBasicGreen();
+    break;
+  }
+  
+}
+
 String detectType(String UID) {
   type = "Not recognized";
   if (UID == "B4 67 C8 73") {
     
     type = "red";
     playNewSkillSound();
-    rageShield();
+    //rageShield();
+    animate(1);
     
   } else if (UID == "C3 F0 48 92") {
     
     type = "blue";
     playNewSkillSound();
-    setColorLedStrip('B');
+    prisonShield();
  
   } else {
     //(UID == "63 1C 54 A7")
     
     type = "green";
     playNewSkillSound();
-    setColorLedStrip('G');
-    
+    setColorLedStrip('R');
     
   }
   return type;
@@ -246,6 +274,31 @@ String detectType(String UID) {
 void setup_rgb() {
   strip.begin();
   strip.setBrightness(BRIGHTNESS);
+}
+
+
+
+void continue_anim(){
+  animate(anim_code);
+}
+
+void fadeBasicGreen(){
+  
+  if(anim_started == 0){
+    anim_started = 1;
+    anim_finished = 0;
+    red = 0;
+    green = 255;
+    blue = 0;
+    int rgb[3] = {red, green, blue};
+    rgb_max = getHighest(rgb);
+  }
+  
+  for (int k = 0; k < rgb_max; k++) {
+    setAll(0, k, 0);
+    strip.show();
+    delay(3);
+  }
 }
 
 void defaultGreenColor() {
@@ -259,7 +312,11 @@ void defaultGreenColor() {
 
 void newSkill(){
   //Green basic effect
-  
+  for (int k = 0; k < 256; k++) {
+    setAll(0, k, 0);
+    strip.show();
+    delay(3);
+  }
 }
 
 void rageShield(){
@@ -287,10 +344,28 @@ void rageShield(){
     //  color switch delay to give a sense of realism
     delay(random(10,100));
   }
+  //set all red, stable
+  setColorLedStrip('R');
+  
 }
 
 void prisonShield(){
+  int red = 0;
+  int green = 0;
+  int blue = 0;
+  int max_red = 0;
+  int max_green = 255;
+  int max_blue = 245;
+  int highest = red + green + blue / 3;
   
+  for (int k = 0; k < highest; k++) {
+    
+    if(green < max_green) green++;
+    if(blue < max_blue) blue++;
+    setAll(red, green, 0);
+    strip.show();
+    delay(3);
+  }
 }
 
 
@@ -332,4 +407,25 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 
   // NeoPixel
   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+}
+
+
+
+int getHighest(int arr[3]){
+   int maxVal = arr[0];
+   int minVal = arr[0];
+   Serial.print("Size of myArray is: ");
+   Serial.println(sizeof(arr));
+
+   for (int i = 0; i < (sizeof(arr) / sizeof(arr[0])); i++) {
+      if (arr[i] > maxVal) {
+         maxVal = arr[i];
+      }
+      if (arr[i] < minVal) {
+         minVal = arr[i];
+      }
+   }
+   Serial.print("Max is: ");
+   Serial.print(maxVal);
+   return maxVal;
 }
