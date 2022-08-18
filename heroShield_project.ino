@@ -59,18 +59,19 @@ boolean initiated = false;
 
 //MODE - defined by Button action
 int lastStatus = 0;
+int mode = 0;
 
 #define SEC 1000
-#define POWER_ACTION_TIME 2000
-#define SWITCH_ACTION_TIME 1500
+#define POWER_ACTION_TIME 1100
+#define SWITCH_ACTION_TIME 1000
 auto currentLoopTime = 0;
 unsigned long previousBtnMillis = 0;
+//error with first check
 
-int mode = 0;
 
 void setup() {
   pinMode(9, INPUT_PULLUP);
-  mode = digitalRead(9);
+  
   
   // define pin modes for tx, rx:
   pinMode(rxPin, INPUT);
@@ -92,12 +93,14 @@ void setup() {
 
 void loop() {
   currentLoopTime = millis();
-  
-  //checkButton(); //Seems stopped working
-  readNFC(); 
+    
+  checkButton(); //Seems stopped working
+  //readNFC(); 
 }
 
 void checkButton(){
+
+  int mode = digitalRead(9);
   
   delay(10); // quick and dirty debounce filter
   if(lastStatus != mode){
@@ -105,28 +108,31 @@ void checkButton(){
 
     if(mode == LOW){
       //modes defined by time the button is pressed
-      Serial.println(F("Basic button press"));
+      //Serial.println(F("Basic button press"));
       
     } else { 
+      //Serial.println(F("Button released"));
       auto interval = currentLoopTime - previousBtnMillis;
-      
-      Serial.println(F("Button released"));
-      // Button released, check which function to launch
-      if (interval < 100)
-      {} // ignore a bounce
-      else if (interval < POWER_ACTION_TIME ) //CHANGE MODE
-          Serial.println(F("CHANGE MODE triggered"));
-      else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
-          Serial.println(F("POWER triggered"));
-      else {
-          //
+
+      if( currentLoopTime  >= 2000) { // check if 1000ms passed)
+
+        // Button released, check which function to launch
+        if (interval < 100)
+        {} // ignore a bounce
+        else if (interval < POWER_ACTION_TIME ) //CHANGE MODE
+            Serial.println(F("CHANGE MODE triggered"));
+        else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
+            Serial.println(F("POWER triggered"));
+        else {
+            //
+        }
+        Serial.println(interval);
       }
-      Serial.println(interval);
-      previousBtnMillis = currentLoopTime;
-    //Serial.println(F("Basic button press"));
-   
     }
+    previousBtnMillis = currentLoopTime;
   }
+
+  
 
 }
 
