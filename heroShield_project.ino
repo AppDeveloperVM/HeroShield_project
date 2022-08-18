@@ -34,7 +34,10 @@ boolean waiting = false;
 
 //constructors for the library for I2C communication with the module and for the NFC
 PN532_I2C pn532_i2c(Wire);
-NfcAdapter nfc = NfcAdapter(pn532_i2c);
+PN532 nfc(pn532_i2c);
+
+String tagId = "None", dispTag = "None";
+byte nuidPICC[4];
 
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
@@ -84,18 +87,17 @@ void setup() {
   initDFPlayer();
   while(init_step < 2) delay(10);
   initNFCReader();
-
+  Serial.println(F("----------------------"));
 }
 
 void loop() {
   currentLoopTime = millis();
   
-  checkButton();
-  //readNFC(); // apparently, readNFC block reading button signals
+  //checkButton(); //Seems stopped working
+  readNFC(); 
 }
 
 void checkButton(){
-  
   
   delay(10); // quick and dirty debounce filter
   if(lastStatus != mode){
@@ -138,12 +140,24 @@ void initLeds(){
 
 void initNFCReader(){
   nfc.begin();//initialization of communication with the module NFC
+  
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata) {
+    Serial.print("Didn't Find PN53x Module");
+    //while (1); // Halt
+  }
+    Serial.println();
+  // Got valid data, print it out!
+    Serial.print("Found chip PN5"); Serial.println((versiondata >> 24) & 0xFF, HEX);
+    Serial.print("Firmware ver. "); Serial.print((versiondata >> 16) & 0xFF, DEC);
+    Serial.print('.'); Serial.println((versiondata >> 8) & 0xFF, DEC);
+
+  // Configure board to read RFID tags
+  nfc.SAMConfig();
 
   Serial.println(F("NFC reader working"));
   init_step++;
 }
-
-
 
 void initDFPlayer(){
   Serial.println();
@@ -156,7 +170,6 @@ void initDFPlayer(){
   if ( checkForErrors() != 1 ) {
     Serial.println(F("[ No errors ]"));
 
-    Serial.println();
     myDFPlayer.volume(VOLUME_LEVEL);  //Set volume value. From 0 to 30
     delay(200);
 
@@ -220,34 +233,43 @@ void readNFC()
   boolean success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-  if (nfc.tagPresent())
-  {
-    NfcTag tag = nfc.read(); //reading the NFC card or tag
-    Serial.println(F(""));
-
-    if ( last_card_UID == tag.getUidString() ) {
-     new_card = false;
-    } else {
-      new_card = true;
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+  
+  if (success) {
+    Serial.print("UID Length: "); Serial.print(uidLength, DEC); Serial.println(" bytes");
+    Serial.print("UID Value: ");
+    for (uint8_t i = 0; i < uidLength; i++) {
+      nuidPICC[i] = uid[i];
+      Serial.print(" "); Serial.print(uid[i], DEC);
     }
-
-    if (new_card) {
-      last_card_UID = tag.getUidString();
-
-//      Serial.println("");
-//      Serial.print("Id: ");
-//      Serial.print(  tag.getUidString() );
-      Serial.println( detectType(tag.getUidString()) );
-//      Serial.println();
-
-      delay(100);  // 1 second halt
+    Serial.println();
+    tagId = tagToString(nuidPICC);
+    dispTag = tagId;
+    Serial.print(F("tagId is : "));
+    Serial.println(tagId);
+    Serial.println("");
+    
+    if(last_card_UID != dispTag){
+      Serial.println( detectType(dispTag) );
+      last_card_UID = dispTag;
     }
-
-  } 
+    
+    delay(1000);  // 1 second halt
+  } else {
+   // PN532 probably timed out waiting for a card
+   //Serial.println("Timed out! Waiting for a card...");
+  }
 
 }
 
-
+String tagToString(byte id[4]) {
+ String tagId = "";
+ for (byte i = 0; i < 4; i++) {
+   if (i < 3) tagId += String(id[i]) + ".";
+   else tagId += String(id[i]);
+ }
+ return tagId;
+}
 
 
 //NEOPIXEL FUNCTIONS
@@ -370,21 +392,20 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 
 String detectType(String UID) {
   type = "Not recognized";
-  if (UID == "04 24 54 32 12 6F 81") {
+  if (UID == "4.36.84.50") {
     
     type = "red";
     playNewSkillSound();
     rageShield();
     
-  } else if (UID == "04 59 AB 32 12 6F 81") {
+  } else if (UID == "4.89.171.50") {
     
     type = "green";
     playNewSkillSound();
     //setColorLedStrip('G');
     newSkill();
  
-  } else {
-    //(UID == "04 D3 BF 32 12 6F 80")
+  } else if( UID == "4.211.191.50" ){
     
     type = "blue";
     playNewSkillSound();
