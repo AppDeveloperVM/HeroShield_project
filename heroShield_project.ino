@@ -9,7 +9,6 @@ ezButton button(9);
 //DFPLAYER
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
-
 #define txPin 11
 #define VOLUME_LEVEL 10
 #define MP3_SOUNDS_FOLDER 10
@@ -45,23 +44,37 @@ NfcAdapter nfc = NfcAdapter(pn532_i2c);
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 10
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-#define BRIGHTNESS 170
+#define BRIGHTNESS 200
+int red = 0;
+int green = 0;
+int blue = 0;
 char stripColor = 'G';
-
-
 
 //Initiation steps
 int init_step = 0;
 boolean initiated = false;
 
+//MODE - defined by Button action
+int lastStatus = 0;
+
+#define SEC 1000
+#define POWER_ACTION_TIME 2000
+#define SWITCH_ACTION_TIME 1500
+auto currentLoopTime = 0;
+unsigned long previousBtnMillis = 0;
+
+int mode = 0;
+
 void setup() {
+  pinMode(9, INPUT_PULLUP);
+  mode = digitalRead(9);
+  
   // define pin modes for tx, rx:
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
 
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
-  button.setDebounceTime(50);
 
   delay(50);
   Serial.println(F("Initiating.."));
@@ -75,17 +88,45 @@ void setup() {
 }
 
 void loop() {
-  button.loop();
-  int btnState = button.getState();
-  if(button.isPressed() )
-    Serial.println(F("The button is pressed"));
-    
-  if(init_step == 3){
-    readNFC();
+  currentLoopTime = millis();
+  
+  checkButton();
+  //readNFC(); // apparently, readNFC block reading button signals
+}
+
+void checkButton(){
+  
+  
+  delay(10); // quick and dirty debounce filter
+  if(lastStatus != mode){
+    lastStatus = mode;
+
+    if(mode == LOW){
+      //modes defined by time the button is pressed
+      Serial.println(F("Basic button press"));
+      
+    } else { 
+      auto interval = currentLoopTime - previousBtnMillis;
+      
+      Serial.println(F("Button released"));
+      // Button released, check which function to launch
+      if (interval < 100)
+      {} // ignore a bounce
+      else if (interval < POWER_ACTION_TIME ) //CHANGE MODE
+          Serial.println(F("CHANGE MODE triggered"));
+      else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
+          Serial.println(F("POWER triggered"));
+      else {
+          //
+      }
+      Serial.println(interval);
+      previousBtnMillis = currentLoopTime;
+    //Serial.println(F("Basic button press"));
+   
+    }
   }
 
 }
-
 
 
 void initLeds(){
@@ -202,44 +243,11 @@ void readNFC()
       delay(100);  // 1 second halt
     }
 
-  } else {
-    waiting = true;
-    // PN532 probably timed out waiting for a card
-  }
-
-  if (waiting) {
-      //Serial.print(".");
-  }else{
-    //Serial.println("");
-  }
+  } 
 
 }
 
-String detectType(String UID) {
-  type = "Not recognized";
-  if (UID == "B4 67 C8 73") {
-    
-    type = "red";
-    playNewSkillSound();
-    rageShield();
-    
-  } else if (UID == "C3 F0 48 92") {
-    
-    type = "blue";
-    playNewSkillSound();
-    setColorLedStrip('B');
- 
-  } else {
-    //(UID == "63 1C 54 A7")
-    
-    type = "green";
-    playNewSkillSound();
-    setColorLedStrip('G');
-    
-    
-  }
-  return type;
-}
+
 
 
 //NEOPIXEL FUNCTIONS
@@ -258,11 +266,24 @@ void defaultGreenColor() {
 }
 
 void newSkill(){
-  //Green basic effect
-  
+  strip.setBrightness(250);
+  strip.show();
 }
 
-void rageShield(){
+void rageShield(int r = 0, int g = 0, int b = 0){
+  if(red != 0) r = red;
+  if(green != 0) g = green;
+  if(blue != 0) b = blue;
+  //254,0,0
+    while(r < 254 ){
+      if(r < 254) r++;
+      setAll(r, g, b);
+      strip.show();
+      delay(3);
+    }
+}
+
+void rageShield_(){
 
   for(int secs = 0; secs < 300 ; secs++) {
     //Fire Effect
@@ -290,10 +311,20 @@ void rageShield(){
 }
 
 void prisonShield(){
-  
+  red = 0;
+  green = 0;
+  blue = 0;
+  //251,245,10
+    while(red < 251 || green < 245 || blue < 10){
+      if(red < 251) red++;
+      if(green < 254) green++;
+      if(blue < 10) blue++;
+      setAll(red, green, blue);
+      strip.show();
+      delay(3);
+    }
+
 }
-
-
 
 void setColorLedStrip(char color){
   switch(color){
@@ -332,4 +363,35 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 
   // NeoPixel
   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+}
+
+
+//NFC
+
+String detectType(String UID) {
+  type = "Not recognized";
+  if (UID == "04 24 54 32 12 6F 81") {
+    
+    type = "red";
+    playNewSkillSound();
+    rageShield();
+    
+  } else if (UID == "04 59 AB 32 12 6F 81") {
+    
+    type = "green";
+    playNewSkillSound();
+    //setColorLedStrip('G');
+    newSkill();
+ 
+  } else {
+    //(UID == "04 D3 BF 32 12 6F 80")
+    
+    type = "blue";
+    playNewSkillSound();
+    //setColorLedStrip('B');
+    prisonShield();
+    
+    
+  }
+  return type;
 }
