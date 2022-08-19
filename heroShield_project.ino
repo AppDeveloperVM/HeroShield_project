@@ -11,7 +11,8 @@ ezButton button(9);
 #define rxPin 10
 #define txPin 11
 #define VOLUME_LEVEL 10
-#define MP3_SOUNDS_FOLDER 10
+#define MP3_SOUNDS_FOLDER 10 //Init sound
+#define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
 boolean has_media = true;
@@ -95,8 +96,6 @@ void loop() {
   currentLoopTime = millis();
     
   checkButton();
-  
-  
 }
 
 void checkButton(){
@@ -120,9 +119,10 @@ void checkButton(){
         // Button released, check which function to launch
         if (interval < 100)
         {} // ignore a bounce
-        else if (interval < POWER_ACTION_TIME ) //CHANGE MODE
+        else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
             Serial.println(F("CHANGE MODE triggered"));
-        else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
+            playSoundBash();
+        } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
             Serial.println(F("POWER triggered"));
         else {
             //
@@ -234,6 +234,23 @@ void playNewSkillSound() {
   actual_track_n = 1;
   initSound = true;
   delay(200);
+}
+
+void playSoundBash(){
+  Serial.println(F(""));
+  Serial.println(F("Shield Bash!"));
+  //1 sec delay for SHIELD BASH EFFECT
+  int counter = 0;
+  int bash_delay = 800;
+  counter = currentLoopTime;//equal to actual millis()
+  delay(bash_delay);
+    myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 1); //Play the ON SOUND mp3
+    actual_track_n = 1;
+    initSound = true;
+    delay(200);
+  
+  
+  
 }
 
 
