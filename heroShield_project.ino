@@ -94,8 +94,9 @@ void setup() {
 void loop() {
   currentLoopTime = millis();
     
-  checkButton(); //Seems stopped working
-  //readNFC(); 
+  checkButton();//Seems stopped working
+  readNFC(); 
+  
 }
 
 void checkButton(){
@@ -160,6 +161,7 @@ void initNFCReader(){
 
   // Configure board to read RFID tags
   nfc.SAMConfig();
+  nfc.setPassiveActivationRetries(0x00);
 
   Serial.println(F("NFC reader working"));
   init_step++;
@@ -259,11 +261,14 @@ void readNFC()
       Serial.println( detectType(dispTag) );
       last_card_UID = dispTag;
     }
+
     
     delay(1000);  // 1 second halt
+    
   } else {
    // PN532 probably timed out waiting for a card
    //Serial.println("Timed out! Waiting for a card...");
+
   }
 
 }
