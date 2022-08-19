@@ -94,8 +94,8 @@ void setup() {
 void loop() {
   currentLoopTime = millis();
     
-  checkButton();//Seems stopped working
-  readNFC(); 
+  checkButton();
+  
   
 }
 
@@ -131,6 +131,8 @@ void checkButton(){
       }
     }
     previousBtnMillis = currentLoopTime;
+  } else {
+    readNFC(); 
   }
 
   
