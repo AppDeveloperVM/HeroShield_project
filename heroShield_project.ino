@@ -97,49 +97,7 @@ void loop() {
     
   checkButton();
 }
-
-void checkButton(){
-
-  int mode = digitalRead(9);
-  
-  delay(10); // quick and dirty debounce filter
-  if(lastStatus != mode){
-    lastStatus = mode;
-
-    if(mode == LOW){
-      //modes defined by time the button is pressed
-      //Serial.println(F("Basic button press"));
-      
-    } else { 
-      //Serial.println(F("Button released"));
-      auto interval = currentLoopTime - previousBtnMillis;
-
-      if( currentLoopTime  >= 2000) { // check if 1000ms passed)
-
-        // Button released, check which function to launch
-        if (interval < 100)
-        {} // ignore a bounce
-        else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
-            Serial.println(F("CHANGE MODE triggered"));
-            playSoundBash();
-        } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
-            Serial.println(F("POWER triggered"));
-        else {
-            //
-        }
-        Serial.println(interval);
-      }
-    }
-    previousBtnMillis = currentLoopTime;
-  } else {
-    readNFC(); 
-  }
-
-  
-
-}
-
-
+// INIT PROCESS
 void initLeds(){
   setup_rgb();
   defaultGreenColor();
@@ -226,7 +184,6 @@ int checkForErrors() {
   return has_errors;
 }
 
-
 void playNewSkillSound() {
   Serial.println(F(""));
   Serial.println(F("New Skill Obtained !"));
@@ -240,17 +197,14 @@ void playSoundBash(){
   Serial.println(F(""));
   Serial.println(F("Shield Bash!"));
   //1 sec delay for SHIELD BASH EFFECT
-  int counter = 0;
+  //int counter = 0;
   int bash_delay = 800;
-  counter = currentLoopTime;//equal to actual millis()
+  //counter = currentLoopTime;//equal to actual millis()
   delay(bash_delay);
-    myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 1); //Play the ON SOUND mp3
-    actual_track_n = 1;
-    initSound = true;
-    delay(200);
-  
-  
-  
+  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 1); //Play the ON SOUND mp3
+  actual_track_n = 1;
+  initSound = true;
+  delay(200);
 }
 
 
@@ -301,6 +255,34 @@ String tagToString(byte id[4]) {
  return tagId;
 }
 
+String detectType(String UID) {
+  type = "Not recognized";
+  if (UID == "4.36.84.50") {
+    
+    type = "red";
+    playNewSkillSound();
+    //rageShield();
+    setColorLedStrip('R');
+    
+  } else if (UID == "4.89.171.50") {
+    
+    type = "green";
+    playNewSkillSound();
+    //newSkill();
+    setColorLedStrip('G');
+    
+ 
+  } else if( UID == "4.211.191.50" ){
+    
+    type = "blue";
+    playNewSkillSound();
+    //prisonShield();
+    setColorLedStrip('B');
+
+  }
+  return type;
+}
+
 
 //NEOPIXEL FUNCTIONS
 void setup_rgb() {
@@ -336,7 +318,6 @@ void rageShield(int r = 0, int g = 0, int b = 0){
 }
 
 void rageShield_(){
-
   for(int secs = 0; secs < 300 ; secs++) {
     //Fire Effect
     //  Regular (orange) flame:
@@ -417,32 +398,41 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
 }
 
+//Button Functions
+void checkButton(){
+  int mode = digitalRead(9);
+  
+  delay(10); // quick and dirty debounce filter
+  if(lastStatus != mode){
+    lastStatus = mode;
 
-//NFC
+    if(mode == LOW){
+      //modes defined by time the button is pressed
+      //Serial.println(F("Basic button press"));
+      
+    } else { 
+      //Serial.println(F("Button released"));
+      auto interval = currentLoopTime - previousBtnMillis;
 
-String detectType(String UID) {
-  type = "Not recognized";
-  if (UID == "4.36.84.50") {
-    
-    type = "red";
-    playNewSkillSound();
-    rageShield();
-    
-  } else if (UID == "4.89.171.50") {
-    
-    type = "green";
-    playNewSkillSound();
-    //setColorLedStrip('G');
-    newSkill();
- 
-  } else if( UID == "4.211.191.50" ){
-    
-    type = "blue";
-    playNewSkillSound();
-    //setColorLedStrip('B');
-    prisonShield();
-    
-    
+      if( currentLoopTime  >= 2000) { // check if 1000ms passed)
+
+        // Button released, check which function to launch
+        if (interval < 100)
+        {} // ignore a bounce
+        else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
+            Serial.println(F("CHANGE MODE triggered"));
+            playSoundBash();
+        } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
+            Serial.println(F("POWER triggered"));
+        else {
+            //
+        }
+        Serial.println(interval);
+      }
+    }
+    previousBtnMillis = currentLoopTime;
+  } else {
+    readNFC(); 
   }
-  return type;
+
 }
