@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 10
+#define VOLUME_LEVEL 17
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
@@ -260,9 +260,11 @@ String detectType(String UID) {
   if (UID == "4.36.84.50") {
     
     type = "red";
-    playNewSkillSound();
+    //playNewSkillSound();
     //rageShield();
     setColorLedStrip('R');
+    myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4);
+    
     
   } else if (UID == "4.89.171.50") {
     
@@ -367,6 +369,7 @@ void setColorLedStrip(char color){
         strip.show();
         delay(3);
       }
+      
     break;
     case 'G':
       for (int k = 0; k < 256; k++) {
