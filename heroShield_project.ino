@@ -54,27 +54,38 @@ int green = 0;
 int blue = 0;
 char stripColor = 'G';
 
+// declare structure for rgb variable
+struct rgbColor {
+  byte r;    // red value 0 to 4095
+  byte g;  // green value
+  byte b;  // blue value
+};
+rgbColor LEDS_COLOR = { 0, 255, 0};
+//Multiple Colors
+rgbColor GREEN = { 0, 255, 0};
+rgbColor RED = { 255, 0, 0};
+rgbColor YELLOW = { 251, 245, 10};
+//
+rgbColor NextCOLOR = { 0, 0, 0};
+
 //Initiation steps
 int init_step = 0;
 boolean initiated = false;
 
 //MODE - defined by Button action
 int lastStatus = 0;
-int mode = 0;
+int mode = 0; // Shield Modes - RageMode / NormalMode
+int power_mode = 0; //Power Modes - On / Off - SleepMode ( low consumption )
 
 #define SEC 1000
 #define POWER_ACTION_TIME 1100
 #define SWITCH_ACTION_TIME 1000
 auto currentLoopTime = 0;
 unsigned long previousBtnMillis = 0;
-//error with first check
-
 
 void setup() {
   pinMode(9, INPUT_PULLUP);
-  
-  
-  // define pin modes for tx, rx:
+  //pin modes for tx, rx:
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
 
@@ -207,6 +218,10 @@ void playSoundBash(){
   delay(200);
 }
 
+void playRageShieldTransf(){
+  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
+}
+
 
 //NFC FUNCTIONS
 void readNFC()
@@ -260,10 +275,9 @@ String detectType(String UID) {
   if (UID == "4.36.84.50") {
     
     type = "red";
-    //playNewSkillSound();
+    //playRageShieldTransf();
     //rageShield();
     setColorLedStrip('R');
-    myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4);
     
     
   } else if (UID == "4.89.171.50") {
@@ -272,7 +286,6 @@ String detectType(String UID) {
     playNewSkillSound();
     //newSkill();
     setColorLedStrip('G');
-    
  
   } else if( UID == "4.211.191.50" ){
     
@@ -294,11 +307,7 @@ void setup_rgb() {
 
 void defaultGreenColor() {
   // Fade IN - GREEN
-  for (int k = 0; k < 256; k++) {
-    setAll(0, k, 0);
-    strip.show();
-    delay(3);
-  }
+  setColorLedStrip('G');
 }
 
 void newSkill(){
@@ -364,28 +373,34 @@ void prisonShield(){
 void setColorLedStrip(char color){
   switch(color){
     case 'R':
-      for (int k = 0; k < 256; k++) {
-        setAll(k, 0, 0);
-        strip.show();
-        delay(3);
-      }
-      
+      fadeToColor(255, 0, 0);
     break;
     case 'G':
-      for (int k = 0; k < 256; k++) {
-        setAll(0, k, 0);
-        strip.show();
-        delay(3);
-      }
+      fadeToColor(0, 255, 0);
     break;
     case 'B':
-      for (int k = 0; k < 256; k++) {
-        setAll(0, 0, k);
-        strip.show();
-        delay(3);
-      }
+      fadeToColor(0, 0, 255);
     break;
   }
+}
+
+void fadeToColor(byte r, byte g, byte b){
+
+  for (int i = 0; i < 10; i++ ) {
+    //LEDS_COLOR - actual color
+    NextCOLOR = {r, g, b};
+  
+    while(LEDS_COLOR.r != NextCOLOR.r || LEDS_COLOR.g != NextCOLOR.g || LEDS_COLOR.b != NextCOLOR.b ){
+      if( LEDS_COLOR.r > NextCOLOR.r ){ LEDS_COLOR.r--; } else if( LEDS_COLOR.r < NextCOLOR.r ){ LEDS_COLOR.r++; } 
+      if( LEDS_COLOR.g > NextCOLOR.g ){ LEDS_COLOR.g--; } else if( LEDS_COLOR.g < NextCOLOR.g ){ LEDS_COLOR.g++; }
+      if( LEDS_COLOR.b > NextCOLOR.b ){ LEDS_COLOR.b--; } else if( LEDS_COLOR.b < NextCOLOR.b ){ LEDS_COLOR.b++; }
+      
+      setPixel(1, LEDS_COLOR.r, LEDS_COLOR.g, LEDS_COLOR.b);
+      strip.show();
+      delay(3);
+    }
+  }
+  
 }
 
 void setAll(byte red, byte green, byte blue) {
