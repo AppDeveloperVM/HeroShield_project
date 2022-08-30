@@ -386,7 +386,7 @@ void setColorLedStrip(char color){
 
 void fadeToColor(byte r, byte g, byte b){
 
-  for (int i = 0; i < 10; i++ ) {
+  
     //LEDS_COLOR - actual color
     NextCOLOR = {r, g, b};
   
@@ -394,12 +394,15 @@ void fadeToColor(byte r, byte g, byte b){
       if( LEDS_COLOR.r > NextCOLOR.r ){ LEDS_COLOR.r--; } else if( LEDS_COLOR.r < NextCOLOR.r ){ LEDS_COLOR.r++; } 
       if( LEDS_COLOR.g > NextCOLOR.g ){ LEDS_COLOR.g--; } else if( LEDS_COLOR.g < NextCOLOR.g ){ LEDS_COLOR.g++; }
       if( LEDS_COLOR.b > NextCOLOR.b ){ LEDS_COLOR.b--; } else if( LEDS_COLOR.b < NextCOLOR.b ){ LEDS_COLOR.b++; }
-      
-      setPixel(1, LEDS_COLOR.r, LEDS_COLOR.g, LEDS_COLOR.b);
+
+      for (int i = 0; i < 10; i++ ) {
+        setPixel(i, LEDS_COLOR.r, LEDS_COLOR.g, LEDS_COLOR.b);
+        
+      }
       strip.show();
-      delay(3);
+        delay(3);
     }
-  }
+  
   
 }
 
