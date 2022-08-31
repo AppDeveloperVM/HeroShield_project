@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 10
+#define VOLUME_LEVEL 20
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
@@ -208,8 +208,12 @@ void rageShield_sound(){
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
 }
 
+void airStrikeShield_sound(){
+  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 2); //Play the ON SOUND mp3
+}
+
 void prisonShield_sound(){
-  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
+  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 3); //Play the ON SOUND mp3
 }
 
 void bashShield_sound(){
@@ -285,7 +289,8 @@ String detectType(String UID) {
   } else if (UID == "4.89.171.50") {
     
     type = "green";
-    newSkill_sound();
+    //newSkill_sound();
+    airStrikeShield_sound();
     //newSkill();
     setColorLedStrip('G');
  
