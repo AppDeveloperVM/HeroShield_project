@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 5
+#define VOLUME_LEVEL 10
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
@@ -195,7 +195,7 @@ int checkForErrors() {
   return has_errors;
 }
 
-void playNewSkillSound() {
+void newSkill_sound() {
   Serial.println(F(""));
   Serial.println(F("New Skill Obtained !"));
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
@@ -204,7 +204,15 @@ void playNewSkillSound() {
   delay(200);
 }
 
-void playSoundBash(){
+void rageShield_sound(){
+  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
+}
+
+void prisonShield_sound(){
+  myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
+}
+
+void bashShield_sound(){
   Serial.println(F(""));
   Serial.println(F("Shield Bash!"));
   //1 sec delay for SHIELD BASH EFFECT
@@ -216,10 +224,6 @@ void playSoundBash(){
   actual_track_n = 1;
   initSound = true;
   delay(200);
-}
-
-void playRageShieldTransf(){
-  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
 }
 
 
@@ -245,10 +249,10 @@ void readNFC()
     Serial.println(tagId);
     Serial.println("");
     
-    if(last_card_UID != dispTag){
+    //if(last_card_UID != dispTag){
       Serial.println( detectType(dispTag) );
       last_card_UID = dispTag;
-    }
+    //}
 
     
     delay(1000);  // 1 second halt
@@ -275,24 +279,22 @@ String detectType(String UID) {
   if (UID == "4.36.84.50") {
     
     type = "red";
-    //playRageShieldTransf();
-    //rageShield();
+    //rageShield_sound();
     setColorLedStrip('R');
-    
     
   } else if (UID == "4.89.171.50") {
     
     type = "green";
-    playNewSkillSound();
+    newSkill_sound();
     //newSkill();
     setColorLedStrip('G');
  
   } else if( UID == "4.211.191.50" ){
     
-    type = "blue";
-    playNewSkillSound();
-    //prisonShield();
-    setColorLedStrip('B');
+    type = "yellow";
+    //playNewSkillSound();
+    prisonShield_sound();
+    setColorLedStrip('Y');
 
   }
   return type;
@@ -308,12 +310,7 @@ void setup_rgb() {
 void defaultGreenColor() {
   // Fade IN - GREEN
   //setColorLedStrip('G');
-  setAll(0, 255, 0);
-}
-
-void newSkill(){
-  strip.setBrightness(250);
-  strip.show();
+  setAll(0, 220, 0);
 }
 
 void rageShield(int r = 0, int g = 0, int b = 0){
@@ -346,47 +343,12 @@ void rageShield_(){
       if(g1<0) g1=0;
       if(r1<0) r1=0;
       if(b1<0) b1=0;
-      strip.setPixelColor(i,r1,g1, b1);
+      strip.setPixelColor(i, r1 , g1, b1);
     }
     strip.show();
     //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
     //  color switch delay to give a sense of realism
     delay(random(10,100));
-  }
-}
-
-void prisonShield(){
-  red = 0;
-  green = 0;
-  blue = 0;
-  //251,245,10
-    while(red < 251 || green < 245 || blue < 10){
-      if(red < 251) red++;
-      if(green < 254) green++;
-      if(blue < 10) blue++;
-      setAll(red, green, blue);
-      strip.show();
-      delay(3);
-    }
-
-}
-
-void setColorLedStrip(char color){
-  switch(color){
-    case 'R':
-      fadeToColor(255, 0, 0);
-      BrightnessSpike(50);
-    break;
-    case 'G':
-      fadeToColor(0, 255, 0);
-    break;
-    case 'B':
-      fadeToColor(0, 0, 255);
-    break;
-    case 'Y': //Shield Prison
-      fadeToColor(251, 245, 10);
-      BrightnessSpike(50);
-    break;
   }
 }
 
@@ -397,11 +359,8 @@ byte fadeCycleTime(int fade_time = 1000, byte fade_speed = 1){
   return cycle_delay;
 }
 
-void fadeToColor(byte r, byte g, byte b){
+void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3){
     //tiempo de fade, fadespeed , rgbmax
-    byte cycle_delay = fadeCycleTime(1000, 1);
-    Serial.println("cycle delay :");
-    Serial.print(cycle_delay);
   
     //LEDS_COLOR - actual color
     NextCOLOR = {r, g, b};
@@ -416,51 +375,46 @@ void fadeToColor(byte r, byte g, byte b){
         
       }
       strip.show();
-        delay(cycle_delay );
+      delay(cycle_delay );
     }
   
 }
 
-void BrightnessSpike(int brightnessSpike){
-  
-  //Brightness to max
-  int actualBrightness = BRIGHTNESS; 
-  while( actualBrightness < BRIGHTNESS + brightnessSpike ){
-    actualBrightness++;
-    strip.setBrightness(actualBrightness);
-    delay(3);
-  }
-  Serial.println("Actual Brightness :");
-  Serial.print(actualBrightness);
-  //wait for x secs
-  int time_delay = 1500;
+void pause_delay(int delay_time = 2000){
   auto lastLoopTime = currentLoopTime;
-
-  Serial.println("");
-  Serial.print("currentLoopTime:");
-  Serial.print(currentLoopTime);
-  Serial.print(".");
-  Serial.print("lastLoopTime:");
-  Serial.print(lastLoopTime);
-  Serial.print(".");
-  Serial.print("time_delay:");
-  Serial.print(time_delay);
-  Serial.print(".");
-
-  while(actualBrightness > BRIGHTNESS ){
-    if(millis() - lastLoopTime >= time_delay){
-      actualBrightness--;
-      strip.setBrightness(actualBrightness);
-      delay(3);
-    }
-
+  while(millis() - lastLoopTime < delay_time){
+    
   }
-  Serial.println("Actual Brightness, -- :");
-  Serial.print(actualBrightness);
-
 }
 
-
+void setColorLedStrip(char color){
+  byte cycle_delay = 1000;
+  
+  switch(color){
+    case 'R':
+      fadeToColor(255, 0, 0);
+    break;
+    case 'G':
+      cycle_delay = fadeCycleTime(1200);
+      fadeToColor(50, 254, 30, cycle_delay);
+      pause_delay(3000);
+      cycle_delay = fadeCycleTime(1400);
+      fadeToColor(0, 220, 0, cycle_delay);
+    break;
+    case 'B':
+      cycle_delay = fadeCycleTime(500);
+      fadeToColor(0, 0, 255, cycle_delay);
+    break;
+    case 'Y': //Shield Prison
+      cycle_delay = fadeCycleTime(500);
+      fadeToColor(255, 233, 0, cycle_delay);
+      pause_delay(3000);
+      cycle_delay = fadeCycleTime(800);
+      fadeToColor(0, 220, 0 , cycle_delay);
+      
+    break;
+  }
+}
 
 
 void setAll(byte red, byte green, byte blue) {
@@ -499,7 +453,7 @@ void checkButton(){
         {} // ignore a bounce
         else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
             Serial.println(F("CHANGE MODE triggered"));
-            playSoundBash();
+            bashShield_sound();
         } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
             Serial.println(F("POWER triggered"));
         else {
