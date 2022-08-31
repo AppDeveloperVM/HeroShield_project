@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 17
+#define VOLUME_LEVEL 5
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
@@ -48,7 +48,7 @@ byte nuidPICC[4];
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 10
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-#define BRIGHTNESS 200
+#define BRIGHTNESS 100
 int red = 0;
 int green = 0;
 int blue = 0;
@@ -307,7 +307,8 @@ void setup_rgb() {
 
 void defaultGreenColor() {
   // Fade IN - GREEN
-  setColorLedStrip('G');
+  //setColorLedStrip('G');
+  setAll(0, 255, 0);
 }
 
 void newSkill(){
@@ -374,6 +375,7 @@ void setColorLedStrip(char color){
   switch(color){
     case 'R':
       fadeToColor(255, 0, 0);
+      BrightnessSpike(50);
     break;
     case 'G':
       fadeToColor(0, 255, 0);
@@ -381,11 +383,25 @@ void setColorLedStrip(char color){
     case 'B':
       fadeToColor(0, 0, 255);
     break;
+    case 'Y': //Shield Prison
+      fadeToColor(251, 245, 10);
+      BrightnessSpike(50);
+    break;
   }
 }
 
-void fadeToColor(byte r, byte g, byte b){
+byte fadeCycleTime(int fade_time = 1000, byte fade_speed = 1){
+  //tiempo de fade, fadespeed , rgbmax
+  byte cycle_delay = fade_time * fade_speed / 255;
 
+  return cycle_delay;
+}
+
+void fadeToColor(byte r, byte g, byte b){
+    //tiempo de fade, fadespeed , rgbmax
+    byte cycle_delay = fadeCycleTime(1000, 1);
+    Serial.println("cycle delay :");
+    Serial.print(cycle_delay);
   
     //LEDS_COLOR - actual color
     NextCOLOR = {r, g, b};
@@ -400,11 +416,52 @@ void fadeToColor(byte r, byte g, byte b){
         
       }
       strip.show();
-        delay(3);
+        delay(cycle_delay );
     }
   
-  
 }
+
+void BrightnessSpike(int brightnessSpike){
+  
+  //Brightness to max
+  int actualBrightness = BRIGHTNESS; 
+  while( actualBrightness < BRIGHTNESS + brightnessSpike ){
+    actualBrightness++;
+    strip.setBrightness(actualBrightness);
+    delay(3);
+  }
+  Serial.println("Actual Brightness :");
+  Serial.print(actualBrightness);
+  //wait for x secs
+  int time_delay = 1500;
+  auto lastLoopTime = currentLoopTime;
+
+  Serial.println("");
+  Serial.print("currentLoopTime:");
+  Serial.print(currentLoopTime);
+  Serial.print(".");
+  Serial.print("lastLoopTime:");
+  Serial.print(lastLoopTime);
+  Serial.print(".");
+  Serial.print("time_delay:");
+  Serial.print(time_delay);
+  Serial.print(".");
+
+  while(actualBrightness > BRIGHTNESS ){
+    if(millis() - lastLoopTime >= time_delay){
+      actualBrightness--;
+      strip.setBrightness(actualBrightness);
+      delay(3);
+    }
+
+  }
+  Serial.println("Actual Brightness, -- :");
+  Serial.print(actualBrightness);
+
+}
+
+
+
 
 void setAll(byte red, byte green, byte blue) {
   for (int i = 0; i < 10; i++ ) {
