@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 20
+#define VOLUME_LEVEL 13
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
@@ -283,7 +283,7 @@ String detectType(String UID) {
   if (UID == "4.36.84.50") {
     
     type = "red";
-    //rageShield_sound();
+    rageShield_sound();
     setColorLedStrip('R');
     
   } else if (UID == "4.89.171.50") {
@@ -310,51 +310,6 @@ String detectType(String UID) {
 void setup_rgb() {
   strip.begin();
   strip.setBrightness(BRIGHTNESS);
-}
-
-void defaultGreenColor() {
-  // Fade IN - GREEN
-  //setColorLedStrip('G');
-  setAll(0, 220, 0);
-}
-
-void rageShield(int r = 0, int g = 0, int b = 0){
-  if(red != 0) r = red;
-  if(green != 0) g = green;
-  if(blue != 0) b = blue;
-  //254,0,0
-    while(r < 254 ){
-      if(r < 254) r++;
-      setAll(r, g, b);
-      strip.show();
-      delay(3);
-    }
-}
-
-void rageShield_(){
-  for(int secs = 0; secs < 300 ; secs++) {
-    //Fire Effect
-    //  Regular (orange) flame:
-    int r = 226, g = 21, b = 35;
-    //  Purple flame:
-    //  int r = 158, g = 8, b = 148;
-    
-    //  Flicker, based on our initial RGB values
-    for(int i=0; i< 10; i++) {
-      int flicker = random(0,55);
-      int r1 = r-flicker;
-      int g1 = g-flicker;
-      int b1 = b-flicker;
-      if(g1<0) g1=0;
-      if(r1<0) r1=0;
-      if(b1<0) b1=0;
-      strip.setPixelColor(i, r1 , g1, b1);
-    }
-    strip.show();
-    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
-    //  color switch delay to give a sense of realism
-    delay(random(10,100));
-  }
 }
 
 byte fadeCycleTime(int fade_time = 1000, byte fade_speed = 1){
@@ -385,10 +340,177 @@ void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3){
   
 }
 
-void pause_delay(int delay_time = 2000){
-  auto lastLoopTime = currentLoopTime;
-  while(millis() - lastLoopTime < delay_time){
+void defaultGreenColor() {
+  // Fade IN - GREEN
+  //setColorLedStrip('G');
+  setAll(0, 220, 0);
+}
+
+boolean array_includes(int array[], int element, int array_size){
+  for(int i = 0; i < array_size; i++){
+    if( array[i] == element ){
+      return true;
+    }
+  }
+  return false;
+}
+
+void rageShield_(){
+  int r1 = 0;
+  int g1 = 0;
+  int b1 = 0;
+  auto lastLoopTime = 0;
+  int interval = 0;
+  byte cycle_delay = 0;
+
+  //Etapas 
+  //A - inicio de la corrupción, solamente unos pocos efectos, desde el color verde al rosado / rojo ( 4 segs ) 
+  //B - Fade de verde a rosado / rojo ( 1 - 2 segs )
+  //C - Flickering de llamas ( 5 / 6 segs )
+  //D - Fade a ROJO
+
+  //A - inicio de la corrupción ( 4 segundos )
+  //parte 1
+  lastLoopTime = millis();
+  interval = 1000;
+  byte random_led = random(0,11);
+  
+  while(millis() - lastLoopTime < interval){
+    //1 led ( 1 seg)
+    //random led    
+    strip.setPixelColor(random_led, 226, 21, 35);
+    strip.show();
+    delay(3);
+  }
+  Serial.println(F("First animation done"));
+
+  lastLoopTime = millis();
+  interval = 2000;
+  
+  while(millis() - lastLoopTime < interval){
     
+    //2 leds ( 2 segs )
+    const int arraySize = 2;
+    int exclusions[arraySize - 1];  
+    int chosen_leds[arraySize ];
+    int index = 0;
+    int value;
+
+    for(int i=0; i< arraySize; i++){
+      do {
+        value = random(0,11);
+      } while( array_includes(chosen_leds, value, arraySize ) );
+
+      chosen_leds[i] = value;
+    }
+ 
+    //Fire Effect
+    //  Regular (orange) flame:
+    int r = 226, g = 21, b = 35;
+    //  Purple flame:
+    //  int r = 158, g = 8, b = 148;
+    
+    //  Flicker, based on our initial RGB values
+    for(int i=0; i< arraySize; i++) {
+      int flicker = random(0,55);
+      r1 = r-flicker;
+      g1 = g-flicker;
+      b1 = b-flicker;
+      if(g1<0) g1=0;
+      if(r1<0) r1=0;
+      if(b1<0) b1=0;
+      strip.setPixelColor(chosen_leds[i] , r1 , g1, b1);
+    }
+    strip.show();
+    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
+    //  color switch delay to give a sense of realism
+    delay(random(10,100));
+  }
+  Serial.println(F("Second animation done"));
+
+  //B - Fade de verde a rosado
+  cycle_delay = fadeCycleTime(1000); 
+  fadeToColor(226, 21, 35, cycle_delay); // rosado
+
+  //parte 2
+  //C - Flickering de llamas
+  lastLoopTime = millis();
+  interval = 4000;
+  
+  while(millis() - lastLoopTime < interval){
+    //Fire Effect
+    //  Regular (orange) flame:
+    int r = 226, g = 21, b = 35;
+    //  Purple flame:
+    //  int r = 158, g = 8, b = 148;
+    
+    //  Flicker, based on our initial RGB values
+    for(int i=0; i< 10; i++) {
+      int flicker = random(0,55);
+      r1 = r-flicker;
+      g1 = g-flicker;
+      b1 = b-flicker;
+      if(g1<0) g1=0;
+      if(r1<0) r1=0;
+      if(b1<0) b1=0;
+      strip.setPixelColor(i, r1 , g1, b1);
+    }
+    strip.show();
+    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
+    //  color switch delay to give a sense of realism
+    delay(random(10,100));
+  }
+
+  Serial.println(F("Third animation done"));
+
+  lastLoopTime = millis();
+  interval = 1400;
+  
+  if(millis() - lastLoopTime < interval){
+  //for(int secs = 0; secs < 300 ; secs++) {
+   
+    //Fire Effect
+    //  Regular (orange) flame:
+    int r = 226, g = 21, b = 35;
+    //  Purple flame:
+    //  int r = 158, g = 8, b = 148;
+    
+    //  Flicker, based on our initial RGB values
+    for(int i=0; i< 10; i++) {
+      int flicker = random(0,55);
+      r1 = r-flicker;
+      g1 = g-flicker;
+      b1 = b-flicker;
+      if(g1<0) g1=0;
+      if(r1<0) r1=0;
+      if(b1<0) b1=0;
+      strip.setPixelColor(i, r1 , g1, b1);
+    }
+    strip.show();
+    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
+    //  color switch delay to give a sense of realism
+    delay(random(10,100));
+  }
+
+  Serial.println(F("Fourth animation done"));
+
+  LEDS_COLOR.r = r1;
+  LEDS_COLOR.g = g1;
+  LEDS_COLOR.b = b1;
+
+  //D - Fade a ROJO
+  cycle_delay = fadeCycleTime(2000);
+  fadeToColor(255, 0, 0, cycle_delay);
+}
+
+
+
+
+
+void pause_delay(int delay_time = 2000){
+  auto lastLoopTime = millis();
+  while(millis() - lastLoopTime < delay_time){
+    delay(3);
   }
 }
 
@@ -397,7 +519,7 @@ void setColorLedStrip(char color){
   
   switch(color){
     case 'R':
-      fadeToColor(255, 0, 0);
+      rageShield_();
     break;
     case 'G':
       cycle_delay = fadeCycleTime(1200);
