@@ -10,7 +10,7 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define BUSY_PIN 2
+#define BUSY_PIN 7
 #define VOLUME_LEVEL 6
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
@@ -246,12 +246,12 @@ void bashShield_sound(){
 }
 
 void alternative_sound(int sound_number){
-  //if(isPlaying){
-    //myDFPlayer.pause(); //Stop SOUND
-  //}else{
+  if(isPlaying){
+    myDFPlayer.pause(); //Stop SOUND
+  }else{
     myDFPlayer.playFolder(MP3_ALTERN_FOLDER, sound_number); //Play SOUND
     delay(10);
-  //}
+  }
 }
 
 //NFC FUNCTIONS
