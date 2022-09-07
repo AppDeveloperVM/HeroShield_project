@@ -10,9 +10,11 @@ ezButton button(9);
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define VOLUME_LEVEL 13
+#define BUSY_PIN 2
+#define VOLUME_LEVEL 6
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
+#define MP3_ALTERN_FOLDER 02 //Alternative Sounds
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
 boolean has_media = true;
@@ -20,6 +22,7 @@ int num_tracks_in_folder = 0;
 int actual_folder = 1;
 int actual_track_n = 0;
 boolean initSound = false;
+boolean isPlaying = false;
 
 // NFC libs
 //including the library for I2C communication
@@ -88,6 +91,7 @@ void setup() {
   //pin modes for tx, rx:
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
+  pinMode(BUSY_PIN,INPUT);
 
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
@@ -107,6 +111,7 @@ void loop() {
   currentLoopTime = millis();
     
   checkButton();
+  checkSoundIsPlaying();
 }
 // INIT PROCESS
 void initLeds(){
@@ -195,6 +200,16 @@ int checkForErrors() {
   return has_errors;
 }
 
+void checkSoundIsPlaying(){
+  if(digitalRead(BUSY_PIN) == LOW ){
+    isPlaying = true;
+  }else if( digitalRead(BUSY_PIN) == HIGH ) {
+    isPlaying = false;
+  }
+}
+
+
+
 void newSkill_sound() {
   Serial.println(F(""));
   Serial.println(F("New Skill Obtained !"));
@@ -230,6 +245,14 @@ void bashShield_sound(){
   delay(200);
 }
 
+void alternative_sound(int sound_number){
+  //if(isPlaying){
+    //myDFPlayer.pause(); //Stop SOUND
+  //}else{
+    myDFPlayer.playFolder(MP3_ALTERN_FOLDER, sound_number); //Play SOUND
+    delay(10);
+  //}
+}
 
 //NFC FUNCTIONS
 void readNFC()
@@ -301,6 +324,9 @@ String detectType(String UID) {
     prisonShield_sound();
     setColorLedStrip('Y');
 
+  } else if(  UID == "4.239.73.50") {
+    alternative_sound(1);
+    type = "altern";
   }
   return type;
 }
