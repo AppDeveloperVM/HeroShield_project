@@ -327,7 +327,11 @@ String detectType(String UID) {
   } else if(  UID == "4.239.73.50") {
     alternative_sound(1);
     type = "altern";
+  } else if( UID =="4.199.171.50"){
+    setColorLedStrip('N');
   }
+
+  
   return type;
 }
 
@@ -573,8 +577,11 @@ void setColorLedStrip(char color){
       pause_delay(3000);
       cycle_delay = fadeCycleTime(800);
       fadeToColor(0, 220, 0 , cycle_delay);
-      
     break;
+    case 'N':
+      cycle_delay = fadeCycleTime(500);
+      fadeToColor(0, 220, 0, cycle_delay);
+     break;
   }
 }
 
