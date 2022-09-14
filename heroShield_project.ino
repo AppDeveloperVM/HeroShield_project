@@ -2,16 +2,12 @@
 #include "Arduino.h"
 #include "SoftwareSerial.h"
 
-//Buttons
-#include <ezButton.h>
-ezButton button(9);
-
 //DFPLAYER
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
 #define BUSY_PIN 7
-#define VOLUME_LEVEL 6
+#define VOLUME_LEVEL 29
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 #define MP3_ALTERN_FOLDER 02 //Alternative Sounds
@@ -323,7 +319,13 @@ String detectType(String UID) {
     //playNewSkillSound();
     prisonShield_sound();
     setColorLedStrip('Y');
-
+    
+  } else if( UID == "4.125.142.50" ) {
+    
+    type = "learn skill";
+    newSkill_sound();
+    setColorLedStrip('G');
+    
   } else if(  UID == "4.239.73.50") {
     alternative_sound(1);
     type = "altern";
@@ -387,7 +389,7 @@ void rageShield_(){
   int b1 = 0;
   auto lastLoopTime = 0;
   int interval = 0;
-  byte cycle_delay = 0;
+  auto cycle_delay = 0;
 
   //Etapas 
   //A - inicio de la corrupción, solamente unos pocos efectos, desde el color verde al rosado / rojo ( 4 segs ) 
@@ -541,7 +543,7 @@ void pause_delay(int delay_time = 2000){
 }
 
 void setColorLedStrip(char color){
-  byte cycle_delay = 1000;
+  auto cycle_delay = 1000;
   
   switch(color){
     case 'R':
