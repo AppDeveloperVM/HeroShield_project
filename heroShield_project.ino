@@ -1,3 +1,4 @@
+
 //BASIC
 #include "Arduino.h"
 #include "SoftwareSerial.h"
@@ -301,26 +302,23 @@ String detectType(String UID) {
   type = "Not recognized";
   if (UID == "4.36.84.50") {
     
-    type = "red";
+    type = "RAGE SHIELD";
     rageShield_sound();
     setColorLedStrip('R');
     
   } else if (UID == "4.89.171.50") {
     
-    type = "green";
-    //newSkill_sound();
+    type = "AIR STRIKE";
     airStrikeShield_sound();
-    //newSkill();
-    setColorLedStrip('G');
+    setColorLedStrip('A');
  
   } else if( UID == "4.211.191.50" ){
     
-    type = "yellow";
-    //playNewSkillSound();
+    type = "PRISON SHIELD";
     prisonShield_sound();
     setColorLedStrip('Y');
     
-  } else if( UID == "4.125.142.50" ) {
+  } else if( UID == "4.125.142.50" || UID == "4.9.73.50") {
     
     type = "learn skill";
     newSkill_sound();
@@ -550,8 +548,17 @@ void setColorLedStrip(char color){
       rageShield_();
     break;
     case 'G':
+    //NEW SKILL
       cycle_delay = fadeCycleTime(1200);
-      fadeToColor(50, 254, 30, cycle_delay);
+      fadeToColor(59, 235, 71, cycle_delay);
+      pause_delay(1000);
+      cycle_delay = fadeCycleTime(1400);
+      fadeToColor(0, 220, 0, cycle_delay);
+    break;
+    case 'A':
+    //AIR STRIKE
+      cycle_delay = fadeCycleTime(1200);
+      fadeToColor(0, 255, 25, cycle_delay);
       pause_delay(3000);
       cycle_delay = fadeCycleTime(1400);
       fadeToColor(0, 220, 0, cycle_delay);
