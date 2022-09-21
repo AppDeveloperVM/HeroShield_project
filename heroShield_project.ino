@@ -8,7 +8,7 @@
 #define rxPin 10
 #define txPin 11
 #define BUSY_PIN 7
-#define VOLUME_LEVEL 29
+#define VOLUME_LEVEL 19
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 #define MP3_ALTERN_FOLDER 02 //Alternative Sounds
@@ -48,7 +48,7 @@ byte nuidPICC[4];
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 10
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-#define BRIGHTNESS 100
+#define BRIGHTNESS 240
 int red = 0;
 int green = 0;
 int blue = 0;
@@ -325,7 +325,12 @@ String detectType(String UID) {
     setColorLedStrip('G');
     
   } else if(  UID == "4.239.73.50") {
+    //METAL GEAR RISING MEME
     alternative_sound(1);
+    type = "altern";
+  } else if(  UID == "4.71.78.50") {
+    //OPENING THEME
+    alternative_sound(2);
     type = "altern";
   } else if( UID =="4.199.171.50"){
     setColorLedStrip('N');
