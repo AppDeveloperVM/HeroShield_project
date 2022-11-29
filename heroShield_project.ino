@@ -20,6 +20,7 @@ int actual_folder = 1;
 int actual_track_n = 0;
 boolean initSound = false;
 boolean isPlaying = false;
+boolean isRageMode = false;
 
 // NFC libs
 //including the library for I2C communication
@@ -217,7 +218,7 @@ void newSkill_sound() {
 }
 
 void rageShield_sound(){
-  myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
+  effect_sound(4);
 }
 
 void airStrikeShield_sound(){
@@ -242,6 +243,16 @@ void bashShield_sound(){
   delay(200);
 }
 
+void effect_sound(int sound_number){
+  if(isPlaying){
+    myDFPlayer.pause(); //Stop SOUND
+  }else{
+    myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, sound_number); //Play the ON SOUND mp3
+    delay(10);
+  }
+  
+}
+
 void alternative_sound(int sound_number){
   if(isPlaying){
     myDFPlayer.pause(); //Stop SOUND
@@ -252,8 +263,7 @@ void alternative_sound(int sound_number){
 }
 
 //NFC FUNCTIONS
-void readNFC()
-{
+void readNFC(){
   boolean success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
@@ -384,6 +394,7 @@ void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3){
 void defaultGreenColor() {
   // Fade IN - GREEN
   //setColorLedStrip('G');
+  isRageMode = false;
   setAll(0, 220, 0);
 }
 
@@ -397,6 +408,10 @@ boolean array_includes(int array[], int element, int array_size){
 }
 
 void rageShield_(){
+  Serial.print("RAGE mode :" );
+  Serial.print(isRageMode);
+  Serial.println();
+  
   int r1 = 0;
   int g1 = 0;
   int b1 = 0;
@@ -423,7 +438,7 @@ void rageShield_(){
     strip.show();
     delay(3);
   }
-  Serial.println(F("First animation done"));
+  //Serial.println(F("First animation done"));
 
   lastLoopTime = millis();
   interval = 2000;
@@ -467,7 +482,7 @@ void rageShield_(){
     //  color switch delay to give a sense of realism
     delay(random(10,100));
   }
-  Serial.println(F("Second animation done"));
+  //Serial.println(F("Second animation done"));
 
   //B - Fade de verde a rosado
   cycle_delay = fadeCycleTime(1000); 
@@ -502,7 +517,7 @@ void rageShield_(){
     delay(random(10,100));
   }
 
-  Serial.println(F("Third animation done"));
+  //Serial.println(F("Third animation done"));
 
   lastLoopTime = millis();
   interval = 1400;
@@ -533,7 +548,7 @@ void rageShield_(){
     delay(random(10,100));
   }
 
-  Serial.println(F("Fourth animation done"));
+  //Serial.println(F("Fourth animation done"));
 
   LEDS_COLOR.r = r1;
   LEDS_COLOR.g = g1;
@@ -633,8 +648,19 @@ void checkButton(){
         {} // ignore a bounce
         else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
             Serial.println(F("CHANGE MODE triggered"));
+            
             //bashShield_sound();
-            setColorLedStrip('R');
+            if(isRageMode){
+              // cambiar a modo HERO
+              setColorLedStrip('G');
+              Serial.println("Change to HERO mode");
+            } else {
+              // cambiar a Modo RAGE
+              setColorLedStrip('R');
+              Serial.println("Change to RAGE mode");
+            }
+            isRageMode = !isRageMode;
+            
         } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
             Serial.println(F("POWER triggered"));
         else {
