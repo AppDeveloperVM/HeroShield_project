@@ -332,6 +332,12 @@ String detectType(String UID) {
     //OPENING THEME
     alternative_sound(2);
     type = "altern";
+  } else if( UID == "4.61.172.50" ){
+    alternative_sound(3);
+    type = "altern";
+  } else if( UID == "4.88.188.50" ){
+    alternative_sound(5);
+    type = "altern";
   } else if( UID =="4.199.171.50"){
     setColorLedStrip('N');
   }
