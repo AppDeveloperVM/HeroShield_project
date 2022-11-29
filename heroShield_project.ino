@@ -633,7 +633,8 @@ void checkButton(){
         {} // ignore a bounce
         else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
             Serial.println(F("CHANGE MODE triggered"));
-            bashShield_sound();
+            //bashShield_sound();
+            setColorLedStrip('R');
         } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
             Serial.println(F("POWER triggered"));
         else {
