@@ -7,7 +7,7 @@
 #include <DFPlayerMini_Fast.h>
 #define rxPin 10
 #define txPin 11
-#define BUSY_PIN 7
+#define BUSY_PIN 2
 #define VOLUME_LEVEL 19
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
