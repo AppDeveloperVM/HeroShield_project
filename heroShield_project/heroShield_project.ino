@@ -1,32 +1,54 @@
+// THE GOAL for the Version 3, is to optimaze the logic.
+// - Fix some errors with the Rage Shield
+// - Take in account, BUSY DFPlayer and BUSY NFCReader
+// - Replace Delay for millis()
+// - Add Timeouts
+
+#define DEBUG 1 // set out to 0 to remove serial Prints
+
+#if DEBUG
+  #define D_print(...) Serial.print(__VA_ARGS__)
+  #define D_println(...) Serial.println(__VA_ARGS__)
+#else 
+  #define D_print(...) 
+  #define D_println(...) 
+#endif
 
 //BASIC
 #include "Arduino.h"
 #include "SoftwareSerial.h"
 
-//DFPLAYER
-#include <DFPlayerMini_Fast.h>
+//PINOUT 
 #define rxPin 10
 #define txPin 11
-#define BUSY_PIN 2
-#define VOLUME_LEVEL 19
+#define BTN_PIN 3
+#define BUSY_PIN 12
+// Which pin on the Arduino is connected to the NeoPixels?
+// On a Trinket or Gemma we suggest changing this to 1:
+#define LED_PIN 2
+
+
+//DFPLAYER
+#include <DFPlayerMini_Fast.h>
+#define VOLUME_LEVEL 8
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 #define MP3_ALTERN_FOLDER 02 //Alternative Sounds
 SoftwareSerial mySoftwareSerial(rxPin, txPin); // RX, TX
 DFPlayerMini_Fast myDFPlayer;
 boolean has_media = true;
+boolean isPlaying = false;
 int num_tracks_in_folder = 0;
 int actual_folder = 1;
 int actual_track_n = 0;
-boolean initSound = false;
-boolean isPlaying = false;
 
 // NFC libs
 //including the library for I2C communication
 #include <Wire.h>
 //including the library for I2C communication with the PN532 module, library for the PN532 module and the library for the NFC
 #include <PN532_I2C.h>
-#include <PN532.h>
+#include <Adafruit_PN532.h>
+#include <PN532_HSU.h>
 #include <NfcAdapter.h>
 String last_card_UID = "";
 boolean new_card = false;
@@ -42,9 +64,6 @@ byte nuidPICC[4];
 
 // NEOPIXEL
 #include <Adafruit_NeoPixel.h>
-// Which pin on the Arduino is connected to the NeoPixels?
-// On a Trinket or Gemma we suggest changing this to 1:
-#define LED_PIN   12
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 10
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -56,7 +75,7 @@ char stripColor = 'G';
 
 // declare structure for rgb variable
 struct rgbColor {
-  byte r;    // red value 0 to 4095
+  byte r;  // red value 0 to 4095
   byte g;  // green value
   byte b;  // blue value
 };
@@ -84,7 +103,7 @@ auto currentLoopTime = 0;
 unsigned long previousBtnMillis = 0;
 
 void setup() {
-  pinMode(9, INPUT_PULLUP);
+  pinMode(BTN_PIN, INPUT_PULLUP);
   //pin modes for tx, rx:
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
@@ -93,197 +112,227 @@ void setup() {
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
 
-  delay(50);
-  Serial.println(F("Initiating.."));
+  while (!Serial) {
+    ; //Espera por la inicialización de Serial
+  }
+
+  D_println(F("Initiating.."));
   //Starting
+  checkInitState();
   initLeds();
-  while(init_step < 1) delay(10);
+  // INIT STEP 1 = LEDS Initiated
+  while(init_step < 1) delay(1);
   initDFPlayer();
-  while(init_step < 2) delay(10);
+  // INIT STEP 2 = DFPlayer Initiated
+  while(init_step < 2) delay(1);
   initNFCReader();
-  Serial.println(F("----------------------"));
+  // INIT STEP 3 = NFCReader Initiated
+  while(init_step < 3) delay(1);
+  
+  D_println(F("----------------------"));
 }
 
 void loop() {
   currentLoopTime = millis();
     
   checkButton();
-  checkSoundIsPlaying();
+  //checkSoundIsPlaying();
+
+  //if (!isPlaying) {
+    readNFC();
+  //}
 }
 // INIT PROCESS
-void initLeds(){
+void initLeds() {
   setup_rgb();
   defaultGreenColor();
-  Serial.println(F("Led Strip working"));
+  D_println(F("Led Strip working"));
   init_step = 1;
 }
 
-void initNFCReader(){
-  nfc.begin();//initialization of communication with the module NFC
+void initNFCReader() {
+  nfc.begin(); //initialization of communication with the module NFC
   
   uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print("Didn't Find PN53x Module");
-    //while (1); // Halt
+  if (!versiondata) {
+    D_print("Didn't Find PN53x Module");
+    while (1); // Halt
   }
-    Serial.println();
-  // Got valid data, print it out!
-    Serial.print("Found chip PN5"); Serial.println((versiondata >> 24) & 0xFF, HEX);
-    Serial.print("Firmware ver. "); Serial.print((versiondata >> 16) & 0xFF, DEC);
-    Serial.print('.'); Serial.println((versiondata >> 8) & 0xFF, DEC);
+    D_println();
+    // Got valid data, print it out!
+    D_print("Found chip PN5"); D_println((versiondata >> 24) & 0xFF, HEX);
+    D_print("Firmware ver. "); D_print((versiondata >> 16) & 0xFF, DEC);
+    D_print('.'); D_println((versiondata >> 8) & 0xFF, DEC);
 
   // Configure board to read RFID tags
   nfc.SAMConfig();
   nfc.setPassiveActivationRetries(0x00);
 
-  Serial.println(F("NFC reader working"));
+  D_println(F("NFC reader working"));
   init_step++;
+  checkInitState();
 }
 
-void initDFPlayer(){
-  Serial.println();
-  Serial.println(F("DFRobot DFPlayer Mini"));
-  Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
+void initDFPlayer() {
+  D_println();
+  D_println(F("DFRobot DFPlayer Mini"));
+  D_println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
 
-
-  Serial.println(F("DFPlayer Mini online."));
+  D_println(F("DFPlayer Mini online."));
+  //myDFPlayer.setTimeout(1000);
   // check errors+
   if ( checkForErrors() != 1 ) {
-    Serial.println(F("[ No errors ]"));
+    D_println(F("[ No errors ]"));
 
-    myDFPlayer.volume(VOLUME_LEVEL);  //Set volume value. From 0 to 30
-    delay(200);
+    myDFPlayer.volume(VOLUME_LEVEL);  // Set volume value. From 0 to 29
+    // myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);
 
-    Serial.print("Current Volume : ");
-    Serial.print( myDFPlayer.currentVolume() );
-    Serial.println(F(""));
-    Serial.print("Total Num tracks: ");
-    Serial.print(myDFPlayer.numSdTracks());
-    Serial.println(F(""));
+    // set max timer to wait for the change
+    unsigned long start_time = millis();
+    while (millis() - start_time < 1000) { // Esperar hasta 200 milisegundos (1000ms = 1 segundo)
+      if (myDFPlayer.currentVolume() == VOLUME_LEVEL) {
+        break; // Salir del bucle si el volumen se ha configurado correctamente
+      }
+    }
+
+    D_print("Current Volume : ");
+    D_print( myDFPlayer.currentVolume() );
+    D_println(F(""));
+    D_print("Total Num tracks: ");
+    D_print(myDFPlayer.numSdTracks());
+    D_println(F(""));
 
     num_tracks_in_folder = myDFPlayer.numTracksInFolder(actual_folder);
 
-    Serial.print("Current track : ");
-    Serial.print(myDFPlayer.currentSdTrack());
-    Serial.println(F(""));
+    D_print("Current track : ");
+    D_print(myDFPlayer.currentSdTrack());
+    D_println(F(""));
     // num_folders = myDFPlayer.numFolders() //contar 1 menos debido a la carpeta de SOUNDS
   } else {
-    Serial.println(F("[ Some errors to fix ]"));
+    D_println(F("[ Some errors to fix ]"));
+    while (1); // Halt
   }
   init_step++;
+  checkInitState();
+}
+//  --------------
+
+void checkInitState() {
+  D_println(F(""));
+  D_print("Init Phase: ");
+  D_print(init_step);
+  D_println(F(""));
 }
 
 //DFPlayer FUNCTIONS
 int checkForErrors() {
   int has_errors = 0;
 
-  if ( !myDFPlayer.begin(mySoftwareSerial) ) {  //Use softwareSerial to communicate with mp3.
-    Serial.println(F("Unable to begin:"));
-    Serial.println(F("1.Please recheck the connection!"));
-    Serial.println(F("2.Please insert the SD card!"));
-    Serial.println( myDFPlayer.numSdTracks() ); //read mp3 state
-
+  if (!myDFPlayer.begin(mySoftwareSerial)) {  // Use softwareSerial to communicate with mp3.
+    D_println(F("Unable to begin:"));
+    D_println(F("1.Please recheck the connection!"));
+    D_println(F("2.Please insert the SD card!"));
+    D_println( myDFPlayer.numSdTracks() ); //read mp3 state
     has_errors = 1;
-
-    while (true);
   }
 
   if ( myDFPlayer.numSdTracks() == -1) {
     has_errors = 1;
     has_media = false;
-    Serial.println(F("- SD card not found"));
+    D_println(F("- SD card not found"));
+  } else {
+    has_media = true;
   }
 
   return has_errors;
 }
 
-void checkSoundIsPlaying(){
-  if(digitalRead(BUSY_PIN) == LOW ){
+void checkSoundIsPlaying() {
+  // Lee el estado del pin BUSY_PIN
+  int busyPinState = digitalRead(BUSY_PIN);
+
+  if (busyPinState == LOW ){
     isPlaying = true;
-  }else if( digitalRead(BUSY_PIN) == HIGH ) {
+  } else if (busyPinState == HIGH ) {
     isPlaying = false;
   }
 }
 
-
-
 void newSkill_sound() {
-  Serial.println(F(""));
-  Serial.println(F("New Skill Obtained !"));
+  D_println(F(""));
+  D_println(F("New Skill Obtained !"));
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
-  initSound = true;
-  delay(200);
+ // delay(200);
 }
 
-void rageShield_sound(){
+void rageShield_sound() {
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 4); //Play the ON SOUND mp3
 }
 
-void airStrikeShield_sound(){
+void airStrikeShield_sound() {
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 2); //Play the ON SOUND mp3
 }
 
-void prisonShield_sound(){
+void prisonShield_sound() {
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 3); //Play the ON SOUND mp3
 }
 
-void bashShield_sound(){
-  Serial.println(F(""));
-  Serial.println(F("Shield Bash!"));
+void bashShield_sound() {
+  unsigned long currentMillis = millis();
+
+  D_println(F(""));
+  D_println(F("Shield Bash!"));
   //1 sec delay for SHIELD BASH EFFECT
   //int counter = 0;
   int bash_delay = 800;
-  //counter = currentLoopTime;//equal to actual millis()
+  //counter = currentLoopTime; //equal to actual millis()
   delay(bash_delay);
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
-  initSound = true;
   delay(200);
 }
 
-void alternative_sound(int sound_number){
-  if(isPlaying){
-    myDFPlayer.pause(); //Stop SOUND
-  }else{
+void alternative_sound(int sound_number) {
+  if (isPlaying){
+    //myDFPlayer.pause(); //Stop SOUND // ERROR - isPlaying ALWAYS TRUE
+  } else {
     myDFPlayer.playFolder(MP3_ALTERN_FOLDER, sound_number); //Play SOUND
     delay(10);
   }
 }
 
 //NFC FUNCTIONS
-void readNFC()
-{
+void readNFC() {
   boolean success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
   
   if (success) {
-    Serial.print("UID Length: "); Serial.print(uidLength, DEC); Serial.println(" bytes");
-    Serial.print("UID Value: ");
+    D_print("UID Length: "); D_print(uidLength, DEC); D_println(" bytes");
+    D_print("UID Value: ");
     for (uint8_t i = 0; i < uidLength; i++) {
       nuidPICC[i] = uid[i];
-      Serial.print(" "); Serial.print(uid[i], DEC);
+      D_print(" "); D_print(uid[i], DEC);
     }
-    Serial.println();
+    D_println();
     tagId = tagToString(nuidPICC);
     dispTag = tagId;
-    Serial.print(F("tagId is : "));
-    Serial.println(tagId);
-    Serial.println("");
+    D_print(F("tagId is : "));
+    D_println(tagId);
+    D_println("");
     
     //if(last_card_UID != dispTag){
-      Serial.println( detectType(dispTag) );
+      D_println( detectType(dispTag) );
       last_card_UID = dispTag;
     //}
 
     
-    delay(1000);  // 1 second halt
-    
+    //delay(1000);  // 1 second halt
   } else {
    // PN532 probably timed out waiting for a card
-   //Serial.println("Timed out! Waiting for a card...");
+   //D_println("Timed out! Waiting for a card...");
 
   }
 
@@ -312,33 +361,33 @@ String detectType(String UID) {
     airStrikeShield_sound();
     setColorLedStrip('A');
  
-  } else if( UID == "4.211.191.50" ){
+  } else if (UID == "4.211.191.50"){
     
     type = "PRISON SHIELD";
     prisonShield_sound();
     setColorLedStrip('Y');
     
-  } else if( UID == "4.125.142.50" || UID == "4.9.73.50") {
+  } else if ( UID == "4.125.142.50" || UID == "4.9.73.50") {
     
     type = "learn skill";
     newSkill_sound();
     setColorLedStrip('G');
     
-  } else if(  UID == "4.239.73.50") {
+  } else if (UID == "4.239.73.50") {
     //METAL GEAR RISING MEME
     alternative_sound(1);
     type = "altern";
-  } else if(  UID == "4.71.78.50") {
+  } else if (UID == "4.71.78.50") {
     //OPENING THEME
     alternative_sound(2);
     type = "altern";
-  } else if( UID == "4.61.172.50" ){
+  } else if (UID == "4.61.172.50" ) {
     alternative_sound(3);
     type = "altern";
-  } else if( UID == "4.88.188.50" ){
+  } else if (UID == "4.88.188.50" ) {
     alternative_sound(5);
     type = "altern";
-  } else if( UID =="4.199.171.50"){
+  } else if (UID =="4.199.171.50") {
     setColorLedStrip('N');
   }
 
@@ -346,21 +395,25 @@ String detectType(String UID) {
   return type;
 }
 
-
 //NEOPIXEL FUNCTIONS
 void setup_rgb() {
   strip.begin();
+
+  while(strip.numPixels() == 0) {
+    ; // wait
+  }
+
   strip.setBrightness(BRIGHTNESS);
 }
 
-byte fadeCycleTime(int fade_time = 1000, byte fade_speed = 1){
+byte fadeCycleTime(int fade_time = 1000, byte fade_speed = 1) {
   //tiempo de fade, fadespeed , rgbmax
   byte cycle_delay = fade_time * fade_speed / 255;
 
   return cycle_delay;
 }
 
-void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3){
+void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3) {
     //tiempo de fade, fadespeed , rgbmax
   
     //LEDS_COLOR - actual color
@@ -373,7 +426,6 @@ void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3){
 
       for (int i = 0; i < 10; i++ ) {
         setPixel(i, LEDS_COLOR.r, LEDS_COLOR.g, LEDS_COLOR.b);
-        
       }
       strip.show();
       delay(cycle_delay );
@@ -387,16 +439,16 @@ void defaultGreenColor() {
   setAll(0, 220, 0);
 }
 
-boolean array_includes(int array[], int element, int array_size){
-  for(int i = 0; i < array_size; i++){
-    if( array[i] == element ){
+boolean array_includes(int array[], int element, int array_size) {
+  for (int i = 0; i < array_size; i++) {
+    if (array[i] == element) {
       return true;
     }
   }
   return false;
 }
 
-void rageShield_(){
+void rageShield_() {
   int r1 = 0;
   int g1 = 0;
   int b1 = 0;
@@ -416,19 +468,19 @@ void rageShield_(){
   interval = 1000;
   byte random_led = random(0,11);
   
-  while(millis() - lastLoopTime < interval){
+  while (millis() - lastLoopTime < interval) {
     //1 led ( 1 seg)
     //random led    
     strip.setPixelColor(random_led, 226, 21, 35);
     strip.show();
     delay(3);
   }
-  Serial.println(F("First animation done"));
+  D_println(F("First animation done"));
 
   lastLoopTime = millis();
   interval = 2000;
   
-  while(millis() - lastLoopTime < interval){
+  while (millis() - lastLoopTime < interval) {
     
     //2 leds ( 2 segs )
     const int arraySize = 2;
@@ -437,7 +489,7 @@ void rageShield_(){
     int index = 0;
     int value;
 
-    for(int i=0; i< arraySize; i++){
+    for (int i=0; i< arraySize; i++) {
       do {
         value = random(0,11);
       } while( array_includes(chosen_leds, value, arraySize ) );
@@ -452,7 +504,7 @@ void rageShield_(){
     //  int r = 158, g = 8, b = 148;
     
     //  Flicker, based on our initial RGB values
-    for(int i=0; i< arraySize; i++) {
+    for (int i=0; i< arraySize; i++) {
       int flicker = random(0,55);
       r1 = r-flicker;
       g1 = g-flicker;
@@ -467,7 +519,7 @@ void rageShield_(){
     //  color switch delay to give a sense of realism
     delay(random(10,100));
   }
-  Serial.println(F("Second animation done"));
+  D_println(F("Second animation done"));
 
   //B - Fade de verde a rosado
   cycle_delay = fadeCycleTime(1000); 
@@ -478,7 +530,7 @@ void rageShield_(){
   lastLoopTime = millis();
   interval = 4000;
   
-  while(millis() - lastLoopTime < interval){
+  while(millis() - lastLoopTime < interval) {
     //Fire Effect
     //  Regular (orange) flame:
     int r = 226, g = 21, b = 35;
@@ -502,12 +554,12 @@ void rageShield_(){
     delay(random(10,100));
   }
 
-  Serial.println(F("Third animation done"));
+  D_println(F("Third animation done"));
 
   lastLoopTime = millis();
   interval = 1400;
   
-  if(millis() - lastLoopTime < interval){
+  if (millis() - lastLoopTime < interval) {
   //for(int secs = 0; secs < 300 ; secs++) {
    
     //Fire Effect
@@ -533,7 +585,7 @@ void rageShield_(){
     delay(random(10,100));
   }
 
-  Serial.println(F("Fourth animation done"));
+  D_println(F("Fourth animation done"));
 
   LEDS_COLOR.r = r1;
   LEDS_COLOR.g = g1;
@@ -544,21 +596,17 @@ void rageShield_(){
   fadeToColor(255, 0, 0, cycle_delay);
 }
 
-
-
-
-
-void pause_delay(int delay_time = 2000){
+void pause_delay(int delay_time = 2000) {
   auto lastLoopTime = millis();
-  while(millis() - lastLoopTime < delay_time){
+  while(millis() - lastLoopTime < delay_time) {
     delay(3);
   }
 }
 
-void setColorLedStrip(char color){
+void setColorLedStrip(char color) {
   auto cycle_delay = 1000;
   
-  switch(color){
+  switch(color) {
     case 'R':
       rageShield_();
     break;
@@ -598,53 +646,50 @@ void setColorLedStrip(char color){
 
 
 void setAll(byte red, byte green, byte blue) {
-  for (int i = 0; i < 10; i++ ) {
+  for (int i = 0; i < LED_COUNT; i++ ) {
     setPixel(i, red, green, blue);
   }
   strip.show();
 }
 
 void setPixel(int Pixel, byte red, byte green, byte blue) {
-
   // NeoPixel
   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
 }
 
 //Button Functions
-void checkButton(){
-  int mode = digitalRead(9);
+void checkButton() {
+  int mode = digitalRead(BTN_PIN);
   
-  delay(10); // quick and dirty debounce filter
-  if(lastStatus != mode){
+  auto interval = currentLoopTime - previousBtnMillis;
+  // quick and dirty debounce filter
+  if (lastStatus != mode) {
     lastStatus = mode;
 
-    if(mode == LOW){
+    if (mode == LOW) {
       //modes defined by time the button is pressed
-      //Serial.println(F("Basic button press"));
+      //D_println(F("Basic button press"));
       
     } else { 
-      //Serial.println(F("Button released"));
+      //D_println(F("Button released"));
       auto interval = currentLoopTime - previousBtnMillis;
 
-      if( currentLoopTime  >= 2000) { // check if 1000ms passed)
+      if (currentLoopTime >= 2000) { // check if 1000ms passed)
 
         // Button released, check which function to launch
         if (interval < 100)
         {} // ignore a bounce
         else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
-            Serial.println(F("CHANGE MODE triggered"));
+            D_println(F("CHANGE MODE triggered"));
             bashShield_sound();
-        } else if (interval >= POWER_ACTION_TIME) //POWER - ON / OFF
-            Serial.println(F("POWER triggered"));
-        else {
+        } else if (interval >= POWER_ACTION_TIME) { //POWER - ON / OFF
+            D_println(F("POWER triggered"));
+        } else {
             //
         }
-        Serial.println(interval);
       }
     }
     previousBtnMillis = currentLoopTime;
-  } else {
-    readNFC(); 
   }
 
 }
