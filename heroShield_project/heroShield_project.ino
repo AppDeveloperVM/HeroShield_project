@@ -99,8 +99,16 @@ int power_mode = 0; //Power Modes - On / Off - SleepMode ( low consumption )
 #define SEC 1000
 #define POWER_ACTION_TIME 1100
 #define SWITCH_ACTION_TIME 1000
+const unsigned long NFC_READ_INTERVAL = 1000;
+unsigned long lastNFCReadTime = 0;
 auto currentLoopTime = 0;
-unsigned long previousBtnMillis = 0;
+unsigned long previousMillis = 0;
+
+bool timeHasPassed(int referencePoint, int timeInterval);
+void checkButton();
+void readNFC();
+void setup_rgb();
+void defaultGreenColor();
 
 void setup() {
   pinMode(BTN_PIN, INPUT_PULLUP);
@@ -108,6 +116,9 @@ void setup() {
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
   pinMode(BUSY_PIN,INPUT);
+
+  // Establecer el tiempo actual como punto de referencia
+  int referencePoint = millis();
 
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
@@ -124,7 +135,8 @@ void setup() {
   while(init_step < 1) delay(1);
   initDFPlayer();
   // INIT STEP 2 = DFPlayer Initiated
-  while(init_step < 2) delay(1);
+  int timeInterval = 1000; // time to wait for STEP to initialize
+  while(init_step < 2 && !timeHasPassed(referencePoint, timeInterval)) delay(1);
   initNFCReader();
   // INIT STEP 3 = NFCReader Initiated
   while(init_step < 3) delay(1);
@@ -134,13 +146,14 @@ void setup() {
 
 void loop() {
   currentLoopTime = millis();
-    
-  checkButton();
+ 
+  //checkButton();
   //checkSoundIsPlaying();
 
-  //if (!isPlaying) {
+  if (timeHasPassed(lastNFCReadTime, NFC_READ_INTERVAL)) {
+    lastNFCReadTime = currentLoopTime;
     readNFC();
-  //}
+  }
 }
 // INIT PROCESS
 void initLeds() {
@@ -151,18 +164,21 @@ void initLeds() {
 }
 
 void initNFCReader() {
+  //delay(500);
+  D_println(F("Initializing NFCReader..."));
   nfc.begin(); //initialization of communication with the module NFC
   
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
     D_print("Didn't Find PN53x Module");
-    while (1); // Halt
+    //while (1); // Halt
   }
-    D_println();
-    // Got valid data, print it out!
-    D_print("Found chip PN5"); D_println((versiondata >> 24) & 0xFF, HEX);
-    D_print("Firmware ver. "); D_print((versiondata >> 16) & 0xFF, DEC);
-    D_print('.'); D_println((versiondata >> 8) & 0xFF, DEC);
+
+  D_println(F(""));
+  // Got valid data, print it out!
+  D_print("Found chip PN5"); D_println((versiondata >> 24) & 0xFF, HEX);
+  D_print("Firmware ver. "); D_print((versiondata >> 16) & 0xFF, DEC);
+  D_print('.'); D_println((versiondata >> 8) & 0xFF, DEC);
 
   // Configure board to read RFID tags
   nfc.SAMConfig();
@@ -178,22 +194,23 @@ void initDFPlayer() {
   D_println(F("DFRobot DFPlayer Mini"));
   D_println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
 
-  D_println(F("DFPlayer Mini online."));
+  
   //myDFPlayer.setTimeout(1000);
   // check errors+
   if ( checkForErrors() != 1 ) {
     D_println(F("[ No errors ]"));
+    D_println(F("DFPlayer Mini online."));
 
     myDFPlayer.volume(VOLUME_LEVEL);  // Set volume value. From 0 to 29
     // myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);
 
     // set max timer to wait for the change
-    unsigned long start_time = millis();
-    while (millis() - start_time < 1000) { // Esperar hasta 200 milisegundos (1000ms = 1 segundo)
-      if (myDFPlayer.currentVolume() == VOLUME_LEVEL) {
-        break; // Salir del bucle si el volumen se ha configurado correctamente
-      }
-    }
+    //unsigned long start_time = millis();
+    // while (currentLoopTime - start_time < 1000) { // Esperar hasta 200 milisegundos (1000ms = 1 segundo)
+    //   if (myDFPlayer.currentVolume() == VOLUME_LEVEL) {
+    //     break; // Salir del bucle si el volumen se ha configurado correctamente
+    //   }
+    // }
 
     D_print("Current Volume : ");
     D_print( myDFPlayer.currentVolume() );
@@ -210,7 +227,7 @@ void initDFPlayer() {
     // num_folders = myDFPlayer.numFolders() //contar 1 menos debido a la carpeta de SOUNDS
   } else {
     D_println(F("[ Some errors to fix ]"));
-    while (1); // Halt
+    //while (1); // Halt
   }
   init_step++;
   checkInitState();
@@ -236,7 +253,7 @@ int checkForErrors() {
     has_errors = 1;
   }
 
-  if ( myDFPlayer.numSdTracks() == -1) {
+  if (myDFPlayer.numSdTracks() == -1) {
     has_errors = 1;
     has_media = false;
     D_println(F("- SD card not found"));
@@ -251,19 +268,28 @@ void checkSoundIsPlaying() {
   // Lee el estado del pin BUSY_PIN
   int busyPinState = digitalRead(BUSY_PIN);
 
-  if (busyPinState == LOW ){
+  if (busyPinState == LOW ) {
     isPlaying = true;
-  } else if (busyPinState == HIGH ) {
+    D_println(F("busy"));
+  } else if (busyPinState == LOW ) {
     isPlaying = false;
   }
 }
+
+bool timeHasPassed(int referencePoint = previousMillis, int timeInterval = 0) {
+  if (currentLoopTime - referencePoint >= timeInterval) {
+    return true;
+  }
+  return false;
+}
+
 
 void newSkill_sound() {
   D_println(F(""));
   D_println(F("New Skill Obtained !"));
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
- // delay(200);
+  delay(200);
 }
 
 void rageShield_sound() {
@@ -295,7 +321,7 @@ void bashShield_sound() {
 
 void alternative_sound(int sound_number) {
   if (isPlaying){
-    //myDFPlayer.pause(); //Stop SOUND // ERROR - isPlaying ALWAYS TRUE
+    myDFPlayer.pause(); //Stop SOUND // ERROR - isPlaying ALWAYS TRUE
   } else {
     myDFPlayer.playFolder(MP3_ALTERN_FOLDER, sound_number); //Play SOUND
     delay(10);
@@ -304,7 +330,7 @@ void alternative_sound(int sound_number) {
 
 //NFC FUNCTIONS
 void readNFC() {
-  boolean success;
+  bool success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
@@ -323,13 +349,13 @@ void readNFC() {
     D_println(tagId);
     D_println("");
     
-    //if(last_card_UID != dispTag){
+    //if(last_card_UID != dispTag){ // detectar si se ha leido un tag diferente del anterior
       D_println( detectType(dispTag) );
       last_card_UID = dispTag;
     //}
 
     
-    //delay(1000);  // 1 second halt
+    delay(1000);  // 1 second halt
   } else {
    // PN532 probably timed out waiting for a card
    //D_println("Timed out! Waiting for a card...");
@@ -468,7 +494,7 @@ void rageShield_() {
   interval = 1000;
   byte random_led = random(0,11);
   
-  while (millis() - lastLoopTime < interval) {
+  while (currentLoopTime - lastLoopTime < interval) {
     //1 led ( 1 seg)
     //random led    
     strip.setPixelColor(random_led, 226, 21, 35);
@@ -480,7 +506,7 @@ void rageShield_() {
   lastLoopTime = millis();
   interval = 2000;
   
-  while (millis() - lastLoopTime < interval) {
+  while (currentLoopTime - lastLoopTime < interval) {
     
     //2 leds ( 2 segs )
     const int arraySize = 2;
@@ -530,7 +556,7 @@ void rageShield_() {
   lastLoopTime = millis();
   interval = 4000;
   
-  while(millis() - lastLoopTime < interval) {
+  while(currentLoopTime - lastLoopTime < interval) {
     //Fire Effect
     //  Regular (orange) flame:
     int r = 226, g = 21, b = 35;
@@ -559,7 +585,7 @@ void rageShield_() {
   lastLoopTime = millis();
   interval = 1400;
   
-  if (millis() - lastLoopTime < interval) {
+  if (currentLoopTime - lastLoopTime < interval) {
   //for(int secs = 0; secs < 300 ; secs++) {
    
     //Fire Effect
@@ -598,7 +624,7 @@ void rageShield_() {
 
 void pause_delay(int delay_time = 2000) {
   auto lastLoopTime = millis();
-  while(millis() - lastLoopTime < delay_time) {
+  while(currentLoopTime - lastLoopTime < delay_time) {
     delay(3);
   }
 }
@@ -661,7 +687,7 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 void checkButton() {
   int mode = digitalRead(BTN_PIN);
   
-  auto interval = currentLoopTime - previousBtnMillis;
+  auto interval = currentLoopTime - previousMillis;
   // quick and dirty debounce filter
   if (lastStatus != mode) {
     lastStatus = mode;
@@ -672,7 +698,7 @@ void checkButton() {
       
     } else { 
       //D_println(F("Button released"));
-      auto interval = currentLoopTime - previousBtnMillis;
+      auto interval = currentLoopTime - previousMillis;
 
       if (currentLoopTime >= 2000) { // check if 1000ms passed)
 
@@ -689,7 +715,7 @@ void checkButton() {
         }
       }
     }
-    previousBtnMillis = currentLoopTime;
+    previousMillis = currentLoopTime;
   }
 
 }
