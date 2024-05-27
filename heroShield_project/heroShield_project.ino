@@ -19,9 +19,9 @@
 #include "SoftwareSerial.h"
 
 //PINOUT 
-#define rxPin 10
-#define txPin 11
-#define BTN_PIN 3
+#define rxPin 11
+#define txPin 10
+#define BTN_PIN 5
 #define BUSY_PIN 12
 // Which pin on the Arduino is connected to the NeoPixels?
 // On a Trinket or Gemma we suggest changing this to 1:
@@ -99,16 +99,8 @@ int power_mode = 0; //Power Modes - On / Off - SleepMode ( low consumption )
 #define SEC 1000
 #define POWER_ACTION_TIME 1100
 #define SWITCH_ACTION_TIME 1000
-const unsigned long NFC_READ_INTERVAL = 1000;
-unsigned long lastNFCReadTime = 0;
 auto currentLoopTime = 0;
-unsigned long previousMillis = 0;
-
-bool timeHasPassed(int referencePoint, int timeInterval);
-void checkButton();
-void readNFC();
-void setup_rgb();
-void defaultGreenColor();
+unsigned long previousBtnMillis = 0;
 
 void setup() {
   pinMode(BTN_PIN, INPUT_PULLUP);
@@ -116,9 +108,6 @@ void setup() {
   pinMode(rxPin, INPUT);
   pinMode(txPin, OUTPUT);
   pinMode(BUSY_PIN,INPUT);
-
-  // Establecer el tiempo actual como punto de referencia
-  int referencePoint = millis();
 
   mySoftwareSerial.begin(9600);
   Serial.begin(115200);
@@ -135,8 +124,7 @@ void setup() {
   while(init_step < 1) delay(1);
   initDFPlayer();
   // INIT STEP 2 = DFPlayer Initiated
-  int timeInterval = 1000; // time to wait for STEP to initialize
-  while(init_step < 2 && !timeHasPassed(referencePoint, timeInterval)) delay(1);
+  while(init_step < 2) delay(1);
   initNFCReader();
   // INIT STEP 3 = NFCReader Initiated
   while(init_step < 3) delay(1);
@@ -146,14 +134,13 @@ void setup() {
 
 void loop() {
   currentLoopTime = millis();
- 
-  //checkButton();
+    
+  checkButton();
   //checkSoundIsPlaying();
 
-  if (timeHasPassed(lastNFCReadTime, NFC_READ_INTERVAL)) {
-    lastNFCReadTime = currentLoopTime;
+  //if (!isPlaying) {
     readNFC();
-  }
+  //}
 }
 // INIT PROCESS
 void initLeds() {
@@ -164,21 +151,18 @@ void initLeds() {
 }
 
 void initNFCReader() {
-  //delay(500);
-  D_println(F("Initializing NFCReader..."));
   nfc.begin(); //initialization of communication with the module NFC
   
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
     D_print("Didn't Find PN53x Module");
-    //while (1); // Halt
+    while (1); // Halt
   }
-
-  D_println(F(""));
-  // Got valid data, print it out!
-  D_print("Found chip PN5"); D_println((versiondata >> 24) & 0xFF, HEX);
-  D_print("Firmware ver. "); D_print((versiondata >> 16) & 0xFF, DEC);
-  D_print('.'); D_println((versiondata >> 8) & 0xFF, DEC);
+    D_println();
+    // Got valid data, print it out!
+    D_print("Found chip PN5"); D_println((versiondata >> 24) & 0xFF, HEX);
+    D_print("Firmware ver. "); D_print((versiondata >> 16) & 0xFF, DEC);
+    D_print('.'); D_println((versiondata >> 8) & 0xFF, DEC);
 
   // Configure board to read RFID tags
   nfc.SAMConfig();
@@ -194,23 +178,23 @@ void initDFPlayer() {
   D_println(F("DFRobot DFPlayer Mini"));
   D_println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
 
-  
+  D_println(F("DFPlayer Mini online."));
   //myDFPlayer.setTimeout(1000);
   // check errors+
   if ( checkForErrors() != 1 ) {
     D_println(F("[ No errors ]"));
-    D_println(F("DFPlayer Mini online."));
 
     myDFPlayer.volume(VOLUME_LEVEL);  // Set volume value. From 0 to 29
-    // myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);
+    delay(500);
+    
 
     // set max timer to wait for the change
-    //unsigned long start_time = millis();
-    // while (currentLoopTime - start_time < 1000) { // Esperar hasta 200 milisegundos (1000ms = 1 segundo)
-    //   if (myDFPlayer.currentVolume() == VOLUME_LEVEL) {
-    //     break; // Salir del bucle si el volumen se ha configurado correctamente
-    //   }
-    // }
+    unsigned long start_time = millis();
+    while (millis() - start_time < 1000) { // Esperar hasta 200 milisegundos (1000ms = 1 segundo)
+      if (myDFPlayer.currentVolume() == VOLUME_LEVEL) {
+        break; // Salir del bucle si el volumen se ha configurado correctamente
+      }
+    }
 
     D_print("Current Volume : ");
     D_print( myDFPlayer.currentVolume() );
@@ -227,7 +211,7 @@ void initDFPlayer() {
     // num_folders = myDFPlayer.numFolders() //contar 1 menos debido a la carpeta de SOUNDS
   } else {
     D_println(F("[ Some errors to fix ]"));
-    //while (1); // Halt
+    while (1); // Halt
   }
   init_step++;
   checkInitState();
@@ -253,7 +237,7 @@ int checkForErrors() {
     has_errors = 1;
   }
 
-  if (myDFPlayer.numSdTracks() == -1) {
+  if ( myDFPlayer.numSdTracks() == -1) {
     has_errors = 1;
     has_media = false;
     D_println(F("- SD card not found"));
@@ -268,28 +252,19 @@ void checkSoundIsPlaying() {
   // Lee el estado del pin BUSY_PIN
   int busyPinState = digitalRead(BUSY_PIN);
 
-  if (busyPinState == LOW ) {
+  if (busyPinState == LOW ){
     isPlaying = true;
-    D_println(F("busy"));
-  } else if (busyPinState == LOW ) {
+  } else if (busyPinState == HIGH ) {
     isPlaying = false;
   }
 }
-
-bool timeHasPassed(int referencePoint = previousMillis, int timeInterval = 0) {
-  if (currentLoopTime - referencePoint >= timeInterval) {
-    return true;
-  }
-  return false;
-}
-
 
 void newSkill_sound() {
   D_println(F(""));
   D_println(F("New Skill Obtained !"));
   myDFPlayer.playFolder(MP3_SOUNDS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
-  delay(200);
+ // delay(200);
 }
 
 void rageShield_sound() {
@@ -316,7 +291,7 @@ void bashShield_sound() {
   delay(bash_delay);
   myDFPlayer.playFolder(MP3_EFFECTS_FOLDER, 1); //Play the ON SOUND mp3
   actual_track_n = 1;
-  delay(200);
+  delay(50);
 }
 
 void alternative_sound(int sound_number) {
@@ -330,7 +305,7 @@ void alternative_sound(int sound_number) {
 
 //NFC FUNCTIONS
 void readNFC() {
-  bool success;
+  boolean success = false;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                       // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
@@ -349,19 +324,17 @@ void readNFC() {
     D_println(tagId);
     D_println("");
     
-    //if(last_card_UID != dispTag){ // detectar si se ha leido un tag diferente del anterior
+    //if(last_card_UID != dispTag){
       D_println( detectType(dispTag) );
       last_card_UID = dispTag;
     //}
 
     
-    delay(1000);  // 1 second halt
+    //delay(1000);  // 1 second halt
   } else {
    // PN532 probably timed out waiting for a card
    //D_println("Timed out! Waiting for a card...");
-
   }
-
 }
 
 String tagToString(byte id[4]) {
@@ -379,25 +352,25 @@ String detectType(String UID) {
     
     type = "RAGE SHIELD";
     rageShield_sound();
-    setColorLedStrip('R');
+    setColorLedStripMode('R');
     
   } else if (UID == "4.89.171.50") {
     
     type = "AIR STRIKE";
     airStrikeShield_sound();
-    setColorLedStrip('A');
+    setColorLedStripMode('A');
  
   } else if (UID == "4.211.191.50"){
     
     type = "PRISON SHIELD";
     prisonShield_sound();
-    setColorLedStrip('Y');
+    setColorLedStripMode('P');
     
   } else if ( UID == "4.125.142.50" || UID == "4.9.73.50") {
     
     type = "learn skill";
     newSkill_sound();
-    setColorLedStrip('G');
+    setColorLedStripMode('N');
     
   } else if (UID == "4.239.73.50") {
     //METAL GEAR RISING MEME
@@ -414,11 +387,26 @@ String detectType(String UID) {
     alternative_sound(5);
     type = "altern";
   } else if (UID =="4.199.171.50") {
-    setColorLedStrip('N');
+    setColorLedStripMode('N');
   }
-
   
   return type;
+}
+
+boolean array_includes(int array[], int element, int array_size) {
+  for (int i = 0; i < array_size; i++) {
+    if (array[i] == element) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void pause_delay(int delay_time = 2000) {
+  auto lastLoopTime = millis();
+  while(millis() - lastLoopTime < delay_time) {
+    delay(3);
+  }
 }
 
 //NEOPIXEL FUNCTIONS
@@ -461,42 +449,23 @@ void fadeToColor(byte r, byte g, byte b, byte cycle_delay = 3) {
 
 void defaultGreenColor() {
   // Fade IN - GREEN
-  //setColorLedStrip('G');
   setAll(0, 220, 0);
 }
 
-boolean array_includes(int array[], int element, int array_size) {
-  for (int i = 0; i < array_size; i++) {
-    if (array[i] == element) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void rageShield_() {
+void rageShield_colors() {
   int r1 = 0;
   int g1 = 0;
   int b1 = 0;
-  auto lastLoopTime = 0;
+  unsigned long lastLoopTime = 0;  // Usar unsigned long para millis()
   int interval = 0;
-  auto cycle_delay = 0;
+  unsigned long cycle_delay = 0;
 
-  //Etapas 
-  //A - inicio de la corrupción, solamente unos pocos efectos, desde el color verde al rosado / rojo ( 4 segs ) 
-  //B - Fade de verde a rosado / rojo ( 1 - 2 segs )
-  //C - Flickering de llamas ( 5 / 6 segs )
-  //D - Fade a ROJO
-
-  //A - inicio de la corrupción ( 4 segundos )
-  //parte 1
+  // A - inicio de la corrupción (4 segundos)
   lastLoopTime = millis();
   interval = 1000;
-  byte random_led = random(0,11);
-  
-  while (currentLoopTime - lastLoopTime < interval) {
-    //1 led ( 1 seg)
-    //random led    
+  byte random_led = random(0, 11);
+
+  while (millis() - lastLoopTime < interval) {
     strip.setPixelColor(random_led, 226, 21, 35);
     strip.show();
     delay(3);
@@ -505,138 +474,97 @@ void rageShield_() {
 
   lastLoopTime = millis();
   interval = 2000;
-  
-  while (currentLoopTime - lastLoopTime < interval) {
-    
-    //2 leds ( 2 segs )
+
+  while (millis() - lastLoopTime < interval) {
     const int arraySize = 2;
-    int exclusions[arraySize - 1];  
-    int chosen_leds[arraySize ];
-    int index = 0;
+    int chosen_leds[arraySize];
     int value;
 
-    for (int i=0; i< arraySize; i++) {
+    for (int i = 0; i < arraySize; i++) {
       do {
-        value = random(0,11);
-      } while( array_includes(chosen_leds, value, arraySize ) );
-
+        value = random(0, 11);
+      } while (array_includes(chosen_leds, value, arraySize));
       chosen_leds[i] = value;
     }
- 
-    //Fire Effect
-    //  Regular (orange) flame:
+
     int r = 226, g = 21, b = 35;
-    //  Purple flame:
-    //  int r = 158, g = 8, b = 148;
-    
-    //  Flicker, based on our initial RGB values
-    for (int i=0; i< arraySize; i++) {
-      int flicker = random(0,55);
-      r1 = r-flicker;
-      g1 = g-flicker;
-      b1 = b-flicker;
-      if(g1<0) g1=0;
-      if(r1<0) r1=0;
-      if(b1<0) b1=0;
-      strip.setPixelColor(chosen_leds[i] , r1 , g1, b1);
+    for (int i = 0; i < arraySize; i++) {
+      int flicker = random(0, 55);
+      r1 = r - flicker;
+      g1 = g - flicker;
+      b1 = b - flicker;
+      if (g1 < 0) g1 = 0;
+      if (r1 < 0) r1 = 0;
+      if (b1 < 0) b1 = 0;
+      strip.setPixelColor(chosen_leds[i], r1, g1, b1);
     }
     strip.show();
-    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
-    //  color switch delay to give a sense of realism
-    delay(random(10,100));
+    delay(random(10, 100));
   }
   D_println(F("Second animation done"));
 
-  //B - Fade de verde a rosado
-  cycle_delay = fadeCycleTime(1000); 
-  fadeToColor(226, 21, 35, cycle_delay); // rosado
+  // B - Fade de verde a rosado
+  cycle_delay = fadeCycleTime(1000);
+  fadeToColor(226, 21, 35, cycle_delay);
 
-  //parte 2
-  //C - Flickering de llamas
+  // C - Flickering de llamas (7 segundos)
   lastLoopTime = millis();
-  interval = 4000;
-  
-  while(currentLoopTime - lastLoopTime < interval) {
-    //Fire Effect
-    //  Regular (orange) flame:
+  interval = 7000;
+
+  while (millis() - lastLoopTime < interval) {
     int r = 226, g = 21, b = 35;
-    //  Purple flame:
-    //  int r = 158, g = 8, b = 148;
-    
-    //  Flicker, based on our initial RGB values
-    for(int i=0; i< 10; i++) {
-      int flicker = random(0,55);
-      r1 = r-flicker;
-      g1 = g-flicker;
-      b1 = b-flicker;
-      if(g1<0) g1=0;
-      if(r1<0) r1=0;
-      if(b1<0) b1=0;
-      strip.setPixelColor(i, r1 , g1, b1);
+    for (int i = 0; i < 10; i++) {
+      int flicker = random(0, 55);
+      r1 = r - flicker;
+      g1 = g - flicker;
+      b1 = b - flicker;
+      if (g1 < 0) g1 = 0;
+      if (r1 < 0) r1 = 0;
+      if (b1 < 0) b1 = 0;
+      strip.setPixelColor(i, r1, g1, b1);
     }
     strip.show();
-    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
-    //  color switch delay to give a sense of realism
-    delay(random(10,100));
+    delay(random(10, 100));
   }
-
   D_println(F("Third animation done"));
 
   lastLoopTime = millis();
   interval = 1400;
-  
-  if (currentLoopTime - lastLoopTime < interval) {
-  //for(int secs = 0; secs < 300 ; secs++) {
-   
-    //Fire Effect
-    //  Regular (orange) flame:
+
+  while (millis() - lastLoopTime < interval) {
     int r = 226, g = 21, b = 35;
-    //  Purple flame:
-    //  int r = 158, g = 8, b = 148;
-    
-    //  Flicker, based on our initial RGB values
-    for(int i=0; i< 10; i++) {
-      int flicker = random(0,55);
-      r1 = r-flicker;
-      g1 = g-flicker;
-      b1 = b-flicker;
-      if(g1<0) g1=0;
-      if(r1<0) r1=0;
-      if(b1<0) b1=0;
-      strip.setPixelColor(i, r1 , g1, b1);
+    for (int i = 0; i < 10; i++) {
+      int flicker = random(0, 55);
+      r1 = r - flicker;
+      g1 = g - flicker;
+      b1 = b - flicker;
+      if (g1 < 0) g1 = 0;
+      if (r1 < 0) r1 = 0;
+      if (b1 < 0) b1 = 0;
+      strip.setPixelColor(i, r1, g1, b1);
     }
     strip.show();
-    //  Adjust the delay here, if you'd like.  Right now, it randomizes the 
-    //  color switch delay to give a sense of realism
-    delay(random(10,100));
+    delay(random(10, 100));
   }
-
   D_println(F("Fourth animation done"));
 
   LEDS_COLOR.r = r1;
   LEDS_COLOR.g = g1;
   LEDS_COLOR.b = b1;
 
-  //D - Fade a ROJO
+  // D - Fade a ROJO
   cycle_delay = fadeCycleTime(2000);
   fadeToColor(255, 0, 0, cycle_delay);
 }
 
-void pause_delay(int delay_time = 2000) {
-  auto lastLoopTime = millis();
-  while(currentLoopTime - lastLoopTime < delay_time) {
-    delay(3);
-  }
-}
-
-void setColorLedStrip(char color) {
+void setColorLedStripMode(char color) {
   auto cycle_delay = 1000;
   
   switch(color) {
     case 'R':
-      rageShield_();
+      rageShield_colors();
     break;
-    case 'G':
+    case 'N':
     //NEW SKILL
       cycle_delay = fadeCycleTime(1200);
       fadeToColor(59, 235, 71, cycle_delay);
@@ -656,20 +584,19 @@ void setColorLedStrip(char color) {
       cycle_delay = fadeCycleTime(500);
       fadeToColor(0, 0, 255, cycle_delay);
     break;
-    case 'Y': //Shield Prison
+    case 'P': //Shield Prison
       cycle_delay = fadeCycleTime(500);
       fadeToColor(255, 233, 0, cycle_delay);
       pause_delay(3000);
       cycle_delay = fadeCycleTime(800);
       fadeToColor(0, 220, 0 , cycle_delay);
     break;
-    case 'N':
+    default:
       cycle_delay = fadeCycleTime(500);
       fadeToColor(0, 220, 0, cycle_delay);
      break;
   }
 }
-
 
 void setAll(byte red, byte green, byte blue) {
   for (int i = 0; i < LED_COUNT; i++ ) {
@@ -687,7 +614,7 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 void checkButton() {
   int mode = digitalRead(BTN_PIN);
   
-  auto interval = currentLoopTime - previousMillis;
+  auto interval = currentLoopTime - previousBtnMillis;
   // quick and dirty debounce filter
   if (lastStatus != mode) {
     lastStatus = mode;
@@ -698,7 +625,7 @@ void checkButton() {
       
     } else { 
       //D_println(F("Button released"));
-      auto interval = currentLoopTime - previousMillis;
+      auto interval = currentLoopTime - previousBtnMillis;
 
       if (currentLoopTime >= 2000) { // check if 1000ms passed)
 
@@ -715,7 +642,7 @@ void checkButton() {
         }
       }
     }
-    previousMillis = currentLoopTime;
+    previousBtnMillis = currentLoopTime;
   }
 
 }
