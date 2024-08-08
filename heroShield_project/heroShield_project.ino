@@ -30,7 +30,7 @@
 
 //DFPLAYER
 #include <DFPlayerMini_Fast.h>
-#define VOLUME_LEVEL 8
+#define VOLUME_LEVEL 16
 #define MP3_SOUNDS_FOLDER 10 //Init sound
 #define MP3_EFFECTS_FOLDER 01 //Shield Bash Sound
 #define MP3_ALTERN_FOLDER 02 //Alternative Sounds
@@ -100,7 +100,16 @@ int power_mode = 0; //Power Modes - On / Off - SleepMode ( low consumption )
 #define POWER_ACTION_TIME 1100
 #define SWITCH_ACTION_TIME 1000
 auto currentLoopTime = 0;
-unsigned long previousBtnMillis = 0;
+
+const unsigned long debounceTime = 50;  // Tiempo para el rebote del botón en milisegundos
+const unsigned long intervalTime = 600;  // Tiempo de espera entre pulsaciones en milisegundos
+
+unsigned long lastDebounceTime = 0;  // Para almacenar el último tiempo en que cambió el estado del botón
+unsigned long lastPressTime = 0;  // Para almacenar el último tiempo en que se presionó el botón
+unsigned long lastReleaseTime = 0;  // Para almacenar el último tiempo en que se soltó el botón
+int buttonState = HIGH;  // Estado actual del botón
+int lastButtonState = HIGH;  // Estado anterior del botón
+int pressCount = 0;  // Contador de pulsaciones
 
 void setup() {
   pinMode(BTN_PIN, INPUT_PULLUP);
@@ -612,37 +621,54 @@ void setPixel(int Pixel, byte red, byte green, byte blue) {
 
 //Button Functions
 void checkButton() {
-  int mode = digitalRead(BTN_PIN);
-  
-  auto interval = currentLoopTime - previousBtnMillis;
-  // quick and dirty debounce filter
-  if (lastStatus != mode) {
-    lastStatus = mode;
+  int reading = digitalRead(BTN_PIN);
 
-    if (mode == LOW) {
-      //modes defined by time the button is pressed
-      //D_println(F("Basic button press"));
-      
-    } else { 
-      //D_println(F("Button released"));
-      auto interval = currentLoopTime - previousBtnMillis;
+  // Verificar si ha pasado el tiempo de rebote
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
 
-      if (currentLoopTime >= 2000) { // check if 1000ms passed)
+  // Si ha pasado el tiempo de rebote, actualizar el estado del botón
+  if ((millis() - lastDebounceTime) > debounceTime) {
+    // Si el estado del botón ha cambiado
+    if (reading != buttonState) {
+      buttonState = reading;
 
-        // Button released, check which function to launch
-        if (interval < 100)
-        {} // ignore a bounce
-        else if (interval < POWER_ACTION_TIME ){ //CHANGE MODE
-            D_println(F("CHANGE MODE triggered"));
-            bashShield_sound();
-        } else if (interval >= POWER_ACTION_TIME) { //POWER - ON / OFF
-            D_println(F("POWER triggered"));
-        } else {
-            //
-        }
+      // Si el botón está presionado
+      if (buttonState == LOW) {
+        pressCount++;
+        lastPressTime = millis();
       }
     }
-    previousBtnMillis = currentLoopTime;
   }
+
+  // Si ha pasado el intervalo de tiempo sin pulsaciones adicionales
+  if ((millis() - lastPressTime) > intervalTime && pressCount > 0) {
+    D_print("Número de pulsaciones detectadas: ");
+    D_println(pressCount);
+
+    switch (pressCount) {
+      case 1:
+        bashShield_sound();
+        break;
+      case 2:
+        airStrikeShield_sound();
+        setColorLedStripMode('A');
+        
+        break;
+      case 3:
+        
+        break;
+      case 4:
+        
+        break;
+      default:
+        
+        break;
+    }
+    pressCount = 0;  // Resetear el contador de pulsaciones
+  }
+
+  lastButtonState = reading;  // Guardar el estado actual del botón para la próxima iteración
 
 }
