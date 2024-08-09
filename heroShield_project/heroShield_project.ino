@@ -654,13 +654,14 @@ void checkButton() {
       case 2:
         airStrikeShield_sound();
         setColorLedStripMode('A');
-        
         break;
       case 3:
-        
+        prisonShield_sound();
+        setColorLedStripMode('P');
         break;
       case 4:
-        
+        rageShield_sound();
+        setColorLedStripMode('R');
         break;
       default:
         
